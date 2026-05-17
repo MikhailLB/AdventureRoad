@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 class InfoScreen extends StatefulWidget {
   final String title;
@@ -13,34 +12,33 @@ class InfoScreen extends StatefulWidget {
 }
 
 class _InfoScreenState extends State<InfoScreen> {
-  late final WebViewController _controller;
-  late final Uri _initialHost;
-  bool _isLoading = true;
+  bool _opening = true;
+  bool _failed = false;
 
   @override
   void initState() {
     super.initState();
-    _initialHost = Uri.parse(widget.url);
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF1A1A2E))
-      ..setNavigationDelegate(NavigationDelegate(
-        onNavigationRequest: (request) {
-          final target = Uri.parse(request.url);
-          if (target.host == _initialHost.host) {
-            return NavigationDecision.navigate;
-          }
-          launchUrl(target, mode: LaunchMode.externalApplication);
-          return NavigationDecision.prevent;
-        },
-        onPageStarted: (_) {
-          if (mounted) setState(() => _isLoading = true);
-        },
-        onPageFinished: (_) {
-          if (mounted) setState(() => _isLoading = false);
-        },
-      ))
-      ..loadRequest(Uri.parse(widget.url));
+    _openExternal();
+  }
+
+  Future<void> _openExternal() async {
+    final uri = Uri.tryParse(widget.url);
+    if (uri == null) {
+      if (mounted) setState(() => _failed = true);
+      return;
+    }
+
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!mounted) return;
+
+    if (opened) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    setState(() {
+      _opening = false;
+      _failed = true;
+    });
   }
 
   @override
@@ -53,16 +51,21 @@ class _InfoScreenState extends State<InfoScreen> {
         title: Text(widget.title),
         elevation: 0,
       ),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(
+      body: Center(
+        child: _opening
+            ? const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
-              ),
-            ),
-        ],
+              )
+            : _failed
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'Unable to open this link.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                  )
+                : const SizedBox.shrink(),
       ),
     );
   }
