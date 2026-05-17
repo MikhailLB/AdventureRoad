@@ -8,6 +8,7 @@ class StorageService {
   static const _keyUrlExpires = 'url_expires';
   static const _keyNotificationSkipUntil = 'notification_skip_until';
   static const _keyNotificationGranted = 'notification_granted';
+  static const _keyNotificationSystemDenied = 'notification_system_denied';
   static const _keyPushUrl = 'psh_u';
 
   late SharedPreferences _prefs;
@@ -61,6 +62,13 @@ class StorageService {
     await _prefs.setBool(_keyNotificationGranted, granted);
   }
 
+  bool isNotificationSystemDenied() =>
+      _prefs.getBool(_keyNotificationSystemDenied) ?? false;
+
+  Future<void> setNotificationSystemDenied(bool denied) async {
+    await _prefs.setBool(_keyNotificationSystemDenied, denied);
+  }
+
   int? getNotificationSkipUntil() => _prefs.getInt(_keyNotificationSkipUntil);
 
   Future<void> setNotificationSkipUntil(int timestamp) async {
@@ -68,6 +76,7 @@ class StorageService {
   }
 
   bool shouldShowNotificationScreen() {
+    if (isNotificationSystemDenied()) return false;
     if (isNotificationGranted()) return false;
     final skipUntil = getNotificationSkipUntil();
     if (skipUntil == null) return true;

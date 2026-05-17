@@ -15,6 +15,19 @@ class AppsFlyerService {
   final Completer<Map<String, dynamic>> _attributionCompleter = Completer();
   final Completer<void> _deepLinkCompleter = Completer();
   bool _initialized = false;
+  
+  String _maskSecret(String value) {
+    if (value.length <= 8) return value;
+    return '${value.substring(0, 4)}...${value.substring(value.length - 4)}';
+  }
+
+  bool _looksLikeConversionData(Map<String, dynamic> payload) {
+    return payload.containsKey('af_status') ||
+        payload.containsKey('media_source') ||
+        payload.containsKey('campaign') ||
+        payload.containsKey('is_first_launch') ||
+        payload.containsKey('install_time');
+  }
 
   Future<void> init() async {
     if (_initialized) return;
@@ -23,9 +36,19 @@ class AppsFlyerService {
     final options = AppsFlyerOptions(
       afDevKey: AppSettings.analyticsKey,
       appId: AppSettings.analyticsAppId,
-      showDebug: false,
+      showDebug: kDebugMode,
       timeToWaitForATTUserAuthorization: 10,
     );
+
+    if (kDebugMode) {
+      debugPrint('[AppsFlyer] init start');
+      debugPrint('[AppsFlyer] config: '
+          'devKey=${_maskSecret(AppSettings.analyticsKey)}, '
+          'appId=${AppSettings.analyticsAppId}, '
+          'bundleId=${AppSettings.bundleId}, '
+          'storeId=${AppSettings.storeId}, '
+          'platform=${Platform.isAndroid ? 'Android' : 'iOS'}');
+    }
 
     _sdk = AppsflyerSdk(options);
 
@@ -37,6 +60,18 @@ class AppsFlyerService {
 
       if (kDebugMode) {
         debugPrint('[AppsFlyer] onInstallConversionData: ${jsonEncode(payload)}');
+      }
+
+      if (!_looksLikeConversionData(payload)) {
+        if (kDebugMode) {
+          debugPrint('[AppsFlyer] conversion payload is not valid attribution data, '
+              'likely SDK/network failure payload. Skip merge into config body.');
+        }
+        _attributionData = <String, dynamic>{};
+        if (!_attributionCompleter.isCompleted) {
+          _attributionCompleter.complete(_attributionData);
+        }
+        return;
       }
 
       if (payload['af_status'] == 'Organic') {
@@ -92,6 +127,10 @@ class AppsFlyerService {
       registerOnAppOpenAttributionCallback: true,
       registerOnDeepLinkingCallback: true,
     );
+
+    if (kDebugMode) {
+      debugPrint('[AppsFlyer] initSdk completed');
+    }
   }
 
   Future<Map<String, dynamic>?> _refreshAttribution() async {
@@ -103,14 +142,26 @@ class AppsFlyerService {
           ? AppSettings.analyticsAppId
           : AppSettings.bundleId;
       final url = Uri.parse(resolveGcdEndpoint(appId, uid));
+      if (kDebugMode) {
+        debugPrint('[AppsFlyer] GCD request url=$url');
+      }
       final response = await appHttpClient.get(url, headers: {
         'authorization': 'Bearer ${AppSettings.analyticsKey}',
       }).timeout(const Duration(seconds: 10));
 
+      if (kDebugMode) {
+        debugPrint('[AppsFlyer] GCD response status=${response.statusCode}');
+        debugPrint('[AppsFlyer] GCD response body=${response.body}');
+      }
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[AppsFlyer] GCD request error: $e');
+      }
+    }
     return null;
   }
 
@@ -179,6 +230,9 @@ class AppsFlyerService {
     }
 
     if (kDebugMode) {
+      debugPrint('[AppsFlyer] conversion keys=${_attributionData?.keys.toList() ?? []}');
+      debugPrint('[AppsFlyer] deepLink keys=${_deepLinkData?.keys.toList() ?? []}');
+      debugPrint('[AppsFlyer] appOpen keys=${_appOpenAttributionData?.keys.toList() ?? []}');
       debugPrint('[AppsFlyer] Request body: ${jsonEncode(body)}');
     }
 

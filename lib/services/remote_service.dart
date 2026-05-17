@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../config/app_settings.dart';
 import '../models/remote_response.dart';
 import 'http_client.dart';
@@ -16,6 +17,10 @@ class RemoteService {
 
     try {
       final uri = Uri.parse(AppSettings.apiEndpoint);
+      if (kDebugMode) {
+        debugPrint('[Config] request endpoint=${uri.toString()}');
+        debugPrint('[Config] request body=${jsonEncode(body)}');
+      }
       final response = await appHttpClient
           .post(
             uri,
@@ -24,9 +29,20 @@ class RemoteService {
           )
           .timeout(const Duration(seconds: 15));
 
+      if (kDebugMode) {
+        debugPrint('[Config] response status=${response.statusCode}');
+        debugPrint('[Config] response body=${response.body}');
+      }
+
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final result = RemoteResponse.fromJson(json);
+
+        if (kDebugMode) {
+          debugPrint('[Config] parsed ok=${result.ok}, '
+              'url=${result.url}, expires=${result.expires}, '
+              'message=${result.message}');
+        }
 
         if (result.ok && result.url != null) {
           await _storage.setSavedUrl(result.url!);
@@ -40,6 +56,9 @@ class RemoteService {
         return RemoteResponse.error('HTTP ${response.statusCode}');
       }
     } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[Config] request error: $e');
+      }
       return RemoteResponse.error(e.toString());
     }
   }

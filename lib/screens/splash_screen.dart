@@ -103,6 +103,8 @@ class _SplashScreenState extends State<SplashScreen> {
         break;
       case AppMode.offline:
         _setBar(_BarState.threeQuarter);
+        final restoredOnline = await _tryRestoreOnlineContent();
+        if (restoredOnline) return;
         await GameAssets().loadAll();
         _setBar(_BarState.full);
         await Future.delayed(const Duration(milliseconds: 600));
@@ -228,6 +230,37 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
+  Future<bool> _tryRestoreOnlineContent() async {
+    final hasInternet = await widget.connectivity.hasInternet();
+    if (!hasInternet) return false;
+
+    // In offline mode we still perform a short attribution attempt so
+    // OneLink launches can bring user back to web flow.
+    await widget.appsFlyer.init();
+    await Future.wait([
+      widget.appsFlyer
+          .waitForAttribution()
+          .timeout(const Duration(seconds: 8), onTimeout: () => {}),
+      widget.appsFlyer.waitForDeepLink(),
+    ]);
+
+    final locale = Platform.localeName.replaceAll('-', '_');
+    final body = await widget.appsFlyer.buildRequestBody(
+      locale: locale,
+      pushToken: widget.pushService.token,
+    );
+    final response = await widget.remoteApi.fetchRemote(body);
+
+    if (!(response.ok && response.url != null)) return false;
+
+    await widget.storage.setAppMode(AppMode.online);
+    _setBar(_BarState.full);
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return true;
+    _navigateToContent(response.url!);
+    return true;
+  }
+
   Future<void> _navigateToContent(String url) async {
     if (_navigated) return;
     _navigated = true;
@@ -290,9 +323,9 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     final barAsset = switch (_bar) {
-      _BarState.empty => 'assets/bar_empty.png',
-      _BarState.threeQuarter => 'assets/bar_3_4.png',
-      _BarState.full => 'assets/bar_full.png',
+      _BarState.empty => 'assets/bar_empty.webp',
+      _BarState.threeQuarter => 'assets/bar_3_4.webp',
+      _BarState.full => 'assets/loading_bar_full.webp',
     };
 
     return Scaffold(
@@ -332,7 +365,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       key: ValueKey(barAsset),
                       fit: BoxFit.fitWidth,
                       filterQuality: FilterQuality.high,
-                      errorBuilder: (_, __, ___) => const SizedBox(height: 30),
+                      errorBuilder: (context, error, stack) => const SizedBox(height: 30),
                     ),
                   ),
                 ),

@@ -114,6 +114,9 @@ class PushNotificationService {
         settings.authorizationStatus == AuthorizationStatus.authorized ||
             settings.authorizationStatus == AuthorizationStatus.provisional;
     await _storage.setNotificationGranted(granted);
+    // If system-level permission is denied after user tapped Accept,
+    // stop showing our custom permission screen on future launches.
+    await _storage.setNotificationSystemDenied(!granted);
     return granted;
   }
 

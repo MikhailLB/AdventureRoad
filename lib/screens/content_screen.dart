@@ -146,6 +146,7 @@ class _ContentScreenState extends State<ContentScreen>
     final currentUrl =
         await _controller.currentUrl() ?? widget.url;
 
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => NoInternetScreen(
