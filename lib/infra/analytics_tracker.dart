@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:appsflyer_sdk/appsflyer_sdk.dart';
-import '../config/app_settings.dart';
-import '../config/analytics_info.dart';
-import 'http_client.dart';
+import '../cfg/app_config.dart';
+import '../cfg/tracker_data.dart';
+import 'http_agent.dart';
 
-class AppsFlyerService {
+class AnalyticsTracker {
   AppsflyerSdk? _sdk;
   Map<String, dynamic>? _attributionData;
   Map<String, dynamic>? _deepLinkData;
@@ -15,7 +15,7 @@ class AppsFlyerService {
   final Completer<Map<String, dynamic>> _attributionCompleter = Completer();
   final Completer<void> _deepLinkCompleter = Completer();
   bool _initialized = false;
-  
+
   String _maskSecret(String value) {
     if (value.length <= 8) return value;
     return '${value.substring(0, 4)}...${value.substring(value.length - 4)}';
@@ -34,19 +34,19 @@ class AppsFlyerService {
     _initialized = true;
 
     final options = AppsFlyerOptions(
-      afDevKey: AppSettings.analyticsKey,
-      appId: AppSettings.analyticsAppId,
+      afDevKey: AppConfig.analyticsKey,
+      appId: AppConfig.analyticsAppId,
       showDebug: kDebugMode,
       timeToWaitForATTUserAuthorization: 10,
     );
 
     if (kDebugMode) {
-      debugPrint('[AppsFlyer] init start');
-      debugPrint('[AppsFlyer] config: '
-          'devKey=${_maskSecret(AppSettings.analyticsKey)}, '
-          'appId=${AppSettings.analyticsAppId}, '
-          'bundleId=${AppSettings.bundleId}, '
-          'storeId=${AppSettings.storeId}, '
+      debugPrint('[Tracker] init start');
+      debugPrint('[Tracker] config: '
+          'devKey=${_maskSecret(AppConfig.analyticsKey)}, '
+          'appId=${AppConfig.analyticsAppId}, '
+          'bundleId=${AppConfig.bundleId}, '
+          'storeId=${AppConfig.storeId}, '
           'platform=${Platform.isAndroid ? 'Android' : 'iOS'}');
     }
 
@@ -59,13 +59,12 @@ class AppsFlyerService {
           : rawData;
 
       if (kDebugMode) {
-        debugPrint('[AppsFlyer] onInstallConversionData: ${jsonEncode(payload)}');
+        debugPrint('[Tracker] onInstallConversionData: ${jsonEncode(payload)}');
       }
 
       if (!_looksLikeConversionData(payload)) {
         if (kDebugMode) {
-          debugPrint('[AppsFlyer] conversion payload is not valid attribution data, '
-              'likely SDK/network failure payload. Skip merge into config body.');
+          debugPrint('[Tracker] conversion payload is not valid attribution data, skip.');
         }
         _attributionData = <String, dynamic>{};
         if (!_attributionCompleter.isCompleted) {
@@ -76,11 +75,11 @@ class AppsFlyerService {
 
       if (payload['af_status'] == 'Organic') {
         await Future.delayed(
-          Duration(seconds: AppSettings.syncRetrySeconds),
+          Duration(seconds: AppConfig.syncRetrySeconds),
         );
         final retryData = await _refreshAttribution();
         if (kDebugMode && retryData != null) {
-          debugPrint('[AppsFlyer] GCD retry data: ${jsonEncode(retryData)}');
+          debugPrint('[Tracker] GCD retry data: ${jsonEncode(retryData)}');
         }
         _attributionData = retryData ?? payload;
       } else {
@@ -99,7 +98,7 @@ class AppsFlyerService {
           : rawData;
 
       if (kDebugMode) {
-        debugPrint('[AppsFlyer] onAppOpenAttribution: ${jsonEncode(payload)}');
+        debugPrint('[Tracker] onAppOpenAttribution: ${jsonEncode(payload)}');
       }
 
       _appOpenAttributionData = payload;
@@ -107,10 +106,10 @@ class AppsFlyerService {
 
     _sdk!.onDeepLinking((result) {
       if (kDebugMode) {
-        debugPrint('[AppsFlyer] onDeepLinking status=${result.status}, '
+        debugPrint('[Tracker] onDeepLinking status=${result.status}, '
             'deepLink=${result.deepLink}, error=${result.error}');
         if (result.deepLink != null) {
-          debugPrint('[AppsFlyer] deepLink clickEvent: '
+          debugPrint('[Tracker] deepLink clickEvent: '
               '${jsonEncode(result.deepLink!.clickEvent)}');
         }
       }
@@ -129,7 +128,7 @@ class AppsFlyerService {
     );
 
     if (kDebugMode) {
-      debugPrint('[AppsFlyer] initSdk completed');
+      debugPrint('[Tracker] initSdk completed');
     }
   }
 
@@ -139,19 +138,19 @@ class AppsFlyerService {
       if (uid == null) return null;
 
       final appId = Platform.isIOS
-          ? AppSettings.analyticsAppId
-          : AppSettings.bundleId;
-      final url = Uri.parse(resolveGcdEndpoint(appId, uid));
+          ? AppConfig.analyticsAppId
+          : AppConfig.bundleId;
+      final url = Uri.parse(getEventUrl(appId, uid));
       if (kDebugMode) {
-        debugPrint('[AppsFlyer] GCD request url=$url');
+        debugPrint('[Tracker] GCD request url=$url');
       }
-      final response = await appHttpClient.get(url, headers: {
-        'authorization': 'Bearer ${AppSettings.analyticsKey}',
+      final response = await httpAgent.get(url, headers: {
+        'authorization': 'Bearer ${AppConfig.analyticsKey}',
       }).timeout(const Duration(seconds: 10));
 
       if (kDebugMode) {
-        debugPrint('[AppsFlyer] GCD response status=${response.statusCode}');
-        debugPrint('[AppsFlyer] GCD response body=${response.body}');
+        debugPrint('[Tracker] GCD response status=${response.statusCode}');
+        debugPrint('[Tracker] GCD response body=${response.body}');
       }
 
       if (response.statusCode == 200) {
@@ -159,7 +158,7 @@ class AppsFlyerService {
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[AppsFlyer] GCD request error: $e');
+        debugPrint('[Tracker] GCD request error: $e');
       }
     }
     return null;
@@ -216,24 +215,24 @@ class AppsFlyerService {
         (body['af_id'] as String? ?? '').isEmpty) {
       body['af_id'] = '';
     }
-    body['bundle_id'] = AppSettings.bundleId;
+    body['bundle_id'] = AppConfig.bundleId;
     body['os'] = Platform.isAndroid ? 'Android' : 'iOS';
-    body['store_id'] = AppSettings.storeId;
+    body['store_id'] = AppConfig.storeId;
     body['locale'] = locale;
 
     if (pushToken != null && pushToken.isNotEmpty) {
       body['push_token'] = pushToken;
     }
 
-    if (AppSettings.messagingProjectId.isNotEmpty) {
-      body['firebase_project_id'] = AppSettings.messagingProjectId;
+    if (AppConfig.messagingProjectId.isNotEmpty) {
+      body['firebase_project_id'] = AppConfig.messagingProjectId;
     }
 
     if (kDebugMode) {
-      debugPrint('[AppsFlyer] conversion keys=${_attributionData?.keys.toList() ?? []}');
-      debugPrint('[AppsFlyer] deepLink keys=${_deepLinkData?.keys.toList() ?? []}');
-      debugPrint('[AppsFlyer] appOpen keys=${_appOpenAttributionData?.keys.toList() ?? []}');
-      debugPrint('[AppsFlyer] Request body: ${jsonEncode(body)}');
+      debugPrint('[Tracker] conversion keys=${_attributionData?.keys.toList() ?? []}');
+      debugPrint('[Tracker] deepLink keys=${_deepLinkData?.keys.toList() ?? []}');
+      debugPrint('[Tracker] appOpen keys=${_appOpenAttributionData?.keys.toList() ?? []}');
+      debugPrint('[Tracker] Request body: ${jsonEncode(body)}');
     }
 
     return body;

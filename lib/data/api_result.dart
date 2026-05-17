@@ -1,18 +1,18 @@
-class RemoteResponse {
+class ApiResult {
   final bool ok;
   final String? url;
   final String? message;
   final int? expires;
 
-  RemoteResponse({
+  ApiResult({
     required this.ok,
     this.url,
     this.message,
     this.expires,
   });
 
-  factory RemoteResponse.fromJson(Map<String, dynamic> json) {
-    return RemoteResponse(
+  factory ApiResult.fromJson(Map<String, dynamic> json) {
+    return ApiResult(
       ok: json['ok'] as bool? ?? false,
       url: json['url'] as String?,
       message: json['message'] as String?,
@@ -20,7 +20,7 @@ class RemoteResponse {
     );
   }
 
-  factory RemoteResponse.error(String message) {
-    return RemoteResponse(ok: false, message: message);
+  factory ApiResult.error(String message) {
+    return ApiResult(ok: false, message: message);
   }
 }

@@ -16,7 +16,7 @@ if (hasKeystore) {
 }
 
 android {
-    namespace = "com.chicktripgsgame.chickentrip2"
+    namespace = "com.adventix.adventureroad"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -31,7 +31,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.chicktripgsgame.chickentrip2"
+        applicationId = "com.adventix.adventureroad"
         minSdk = 30
         targetSdk = 35
         versionCode = flutter.versionCode

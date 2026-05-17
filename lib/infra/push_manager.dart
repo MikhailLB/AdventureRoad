@@ -4,16 +4,16 @@ import 'dart:typed_data';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'http_client.dart';
-import 'storage_service.dart';
+import 'http_agent.dart';
+import 'data_store.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {}
 
-class PushNotificationService {
+class PushManager {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
-  final StorageService _storage;
+  final DataStore _store;
   FirebaseMessaging? _messaging;
   String? _token;
   bool _initialized = false;
@@ -21,7 +21,7 @@ class PushNotificationService {
   Function(String url)? onNotificationUrl;
   Function(String newToken)? onTokenRefresh;
 
-  PushNotificationService(this._storage);
+  PushManager(this._store);
 
   String? get token => _token;
 
@@ -53,9 +53,7 @@ class PushNotificationService {
       }
 
       _initialized = true;
-    } catch (_) {
-      // Firebase not configured — app works without push notifications
-    }
+    } catch (_) {}
   }
 
   Future<void> _initLocalNotifications() async {
@@ -113,10 +111,8 @@ class PushNotificationService {
     final granted =
         settings.authorizationStatus == AuthorizationStatus.authorized ||
             settings.authorizationStatus == AuthorizationStatus.provisional;
-    await _storage.setNotificationGranted(granted);
-    // If system-level permission is denied after user tapped Accept,
-    // stop showing our custom permission screen on future launches.
-    await _storage.setNotificationSystemDenied(!granted);
+    await _store.setNotificationGranted(granted);
+    await _store.setNotificationSystemDenied(!granted);
     return granted;
   }
 
@@ -172,18 +168,13 @@ class PushNotificationService {
     );
   }
 
-  // Cold start: app was fully killed and launched via push click.
-  // Save URL to storage so splash_screen can pick it up during startup navigation.
   void _handleOpenedFromColdStart(RemoteMessage message) {
     final url = message.data['url'] as String?;
     if (url != null && url.isNotEmpty) {
-      _storage.setPushUrl(url);
+      _store.setPushUrl(url);
     }
   }
 
-  // Warm resume: app was in background/foreground, push click brings it forward.
-  // ContentScreen loads URL in-place via callback — do NOT persist to storage,
-  // otherwise next app launch would reopen the same URL (one-time rule from spec).
   void _handleOpenedFromBackground(RemoteMessage message) {
     final url = message.data['url'] as String?;
     if (url != null && url.isNotEmpty) {
@@ -194,7 +185,7 @@ class PushNotificationService {
   Future<Uint8List?> _downloadImage(String url) async {
     try {
       final response =
-          await appHttpClient.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+          await httpAgent.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         return response.bodyBytes;
       }

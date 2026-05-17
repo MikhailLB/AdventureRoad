@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:http/http.dart' as http;
-import '../utils/codec.dart';
+import '../helpers/cipher.dart';
 
-String get _fallbackCv => d(const [39, 164, 178, 67, 146, 29, 199, 88, 222, 188, 50, 19, 202]);
-String get _sv => d(const [32, 167, 177, 67, 147, 29, 193, 92]);
+String get _fallbackCv => xd(const [39, 164, 178, 67, 146, 29, 199, 88, 222, 188, 50, 19, 202]);
+String get _sv => xd(const [32, 167, 177, 67, 147, 29, 193, 92]);
 
-class AppHttpClient extends http.BaseClient {
+class HttpAgent extends http.BaseClient {
   final http.Client _inner = http.Client();
   String? _userAgent;
 
@@ -52,4 +52,4 @@ class AppHttpClient extends http.BaseClient {
   void close() => _inner.close();
 }
 
-final appHttpClient = AppHttpClient();
+final httpAgent = HttpAgent();

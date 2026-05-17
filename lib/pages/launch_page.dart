@@ -1,41 +1,41 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import '../game/game_assets.dart';
-import '../models/app_mode.dart';
-import '../services/appsflyer_service.dart';
-import '../services/remote_service.dart';
-import '../services/connectivity_service.dart';
-import '../services/push_notification_service.dart';
-import '../services/storage_service.dart';
-import '../game/game_screen.dart';
-import 'no_internet_screen.dart';
-import 'notification_permission_screen.dart';
-import 'content_screen.dart' deferred as content;
+import '../core/media_bundle.dart';
+import '../data/app_state.dart';
+import '../infra/analytics_tracker.dart';
+import '../infra/api_client.dart';
+import '../infra/net_checker.dart';
+import '../infra/push_manager.dart';
+import '../infra/data_store.dart';
+import '../core/play_view.dart';
+import 'no_signal_page.dart';
+import 'notify_page.dart';
+import 'web_view_page.dart' deferred as webview;
 
 enum _BarState { empty, threeQuarter, full }
 
-class SplashScreen extends StatefulWidget {
-  final StorageService storage;
-  final ConnectivityService connectivity;
-  final AppsFlyerService appsFlyer;
-  final RemoteService remoteApi;
-  final PushNotificationService pushService;
+class LaunchPage extends StatefulWidget {
+  final DataStore store;
+  final NetChecker netChecker;
+  final AnalyticsTracker tracker;
+  final ApiClient apiClient;
+  final PushManager pushManager;
 
-  const SplashScreen({
+  const LaunchPage({
     super.key,
-    required this.storage,
-    required this.connectivity,
-    required this.appsFlyer,
-    required this.remoteApi,
-    required this.pushService,
+    required this.store,
+    required this.netChecker,
+    required this.tracker,
+    required this.apiClient,
+    required this.pushManager,
   });
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<LaunchPage> createState() => _LaunchPageState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _LaunchPageState extends State<LaunchPage> {
   VideoPlayerController? _videoController;
   bool _videoReady = false;
   _BarState _bar = _BarState.empty;
@@ -89,28 +89,28 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _run() async {
-    widget.pushService.onTokenRefresh = _onPushTokenRefresh;
-    await widget.pushService.init().catchError((_) {});
+    widget.pushManager.onTokenRefresh = _onPushTokenRefresh;
+    await widget.pushManager.init().catchError((_) {});
 
     _setBar(_BarState.empty);
 
-    final mode = widget.storage.getAppMode();
+    final mode = widget.store.getAppMode();
 
     switch (mode) {
-      case AppMode.online:
+      case AppState.online:
         _setBar(_BarState.threeQuarter);
         await _handleOnlineMode();
         break;
-      case AppMode.offline:
+      case AppState.offline:
         _setBar(_BarState.threeQuarter);
         final restoredOnline = await _tryRestoreOnlineContent();
         if (restoredOnline) return;
-        await GameAssets().loadAll();
+        await MediaBundle().loadAll();
         _setBar(_BarState.full);
         await Future.delayed(const Duration(milliseconds: 600));
         _navigateToGame();
         break;
-      case AppMode.pending:
+      case AppState.pending:
         await _handleFirstLaunch();
         break;
     }
@@ -118,18 +118,18 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   void dispose() {
-    widget.pushService.onTokenRefresh = null;
+    widget.pushManager.onTokenRefresh = null;
     _videoController?.dispose();
     super.dispose();
   }
 
   void _onPushTokenRefresh(String newToken) async {
     final locale = Platform.localeName.replaceAll('-', '_');
-    final body = await widget.appsFlyer.buildRequestBody(
+    final body = await widget.tracker.buildRequestBody(
       locale: locale,
       pushToken: newToken,
     );
-    widget.remoteApi.fetchRemote(body);
+    widget.apiClient.fetchRemote(body);
   }
 
   void _setBar(_BarState b) {
@@ -139,36 +139,36 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _handleFirstLaunch() async {
     _setBar(_BarState.empty);
 
-    final hasInternet = await widget.connectivity.hasInternet();
+    final hasInternet = await widget.netChecker.hasInternet();
     if (!hasInternet) {
       if (!mounted) return;
-      _navigateToNoInternet(isFirstLaunch: true);
+      _navigateToNoSignal(isFirstLaunch: true);
       return;
     }
 
     _setBar(_BarState.threeQuarter);
-    await widget.appsFlyer.init();
+    await widget.tracker.init();
     await Future.wait([
-      widget.appsFlyer.waitForAttribution(),
-      widget.appsFlyer.waitForDeepLink(),
+      widget.tracker.waitForAttribution(),
+      widget.tracker.waitForDeepLink(),
     ]);
 
     final locale = Platform.localeName.replaceAll('-', '_');
-    final body = await widget.appsFlyer.buildRequestBody(
+    final body = await widget.tracker.buildRequestBody(
       locale: locale,
-      pushToken: widget.pushService.token,
+      pushToken: widget.pushManager.token,
     );
-    final response = await widget.remoteApi.fetchRemote(body);
+    final response = await widget.apiClient.fetchRemote(body);
 
     if (response.ok && response.url != null) {
-      await widget.storage.setAppMode(AppMode.online);
+      await widget.store.setAppMode(AppState.online);
       _setBar(_BarState.full);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
       _navigateToContent(response.url!);
     } else {
-      await widget.storage.setAppMode(AppMode.offline);
-      await GameAssets().loadAll();
+      await widget.store.setAppMode(AppState.offline);
+      await MediaBundle().loadAll();
       _setBar(_BarState.full);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
@@ -177,18 +177,17 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _handleOnlineMode() async {
-    final hasInternet = await widget.connectivity.hasInternet();
+    final hasInternet = await widget.netChecker.hasInternet();
 
     if (!hasInternet) {
       _setBar(_BarState.full);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
-      _navigateToNoInternet(isFirstLaunch: false);
+      _navigateToNoSignal(isFirstLaunch: false);
       return;
     }
 
-    // One-time push URL takes priority
-    final pushUrl = await widget.storage.consumePushUrl();
+    final pushUrl = await widget.store.consumePushUrl();
     if (pushUrl != null) {
       _setBar(_BarState.full);
       await Future.delayed(const Duration(milliseconds: 400));
@@ -197,22 +196,22 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    final savedUrl = await widget.storage.getSavedUrl();
+    final savedUrl = await widget.store.getSavedUrl();
 
-    await widget.appsFlyer.init();
+    await widget.tracker.init();
     await Future.wait([
-      widget.appsFlyer
+      widget.tracker
           .waitForAttribution()
           .timeout(const Duration(seconds: 10), onTimeout: () => {}),
-      widget.appsFlyer.waitForDeepLink(),
+      widget.tracker.waitForDeepLink(),
     ]);
 
     final locale = Platform.localeName.replaceAll('-', '_');
-    final body = await widget.appsFlyer.buildRequestBody(
+    final body = await widget.tracker.buildRequestBody(
       locale: locale,
-      pushToken: widget.pushService.token,
+      pushToken: widget.pushManager.token,
     );
-    final response = await widget.remoteApi.fetchRemote(body);
+    final response = await widget.apiClient.fetchRemote(body);
 
     _setBar(_BarState.full);
     await Future.delayed(const Duration(milliseconds: 400));
@@ -226,34 +225,32 @@ class _SplashScreenState extends State<SplashScreen> {
     if (savedUrl != null) {
       _navigateToContent(savedUrl);
     } else {
-      _navigateToNoInternet(isFirstLaunch: false);
+      _navigateToNoSignal(isFirstLaunch: false);
     }
   }
 
   Future<bool> _tryRestoreOnlineContent() async {
-    final hasInternet = await widget.connectivity.hasInternet();
+    final hasInternet = await widget.netChecker.hasInternet();
     if (!hasInternet) return false;
 
-    // In offline mode we still perform a short attribution attempt so
-    // OneLink launches can bring user back to web flow.
-    await widget.appsFlyer.init();
+    await widget.tracker.init();
     await Future.wait([
-      widget.appsFlyer
+      widget.tracker
           .waitForAttribution()
           .timeout(const Duration(seconds: 8), onTimeout: () => {}),
-      widget.appsFlyer.waitForDeepLink(),
+      widget.tracker.waitForDeepLink(),
     ]);
 
     final locale = Platform.localeName.replaceAll('-', '_');
-    final body = await widget.appsFlyer.buildRequestBody(
+    final body = await widget.tracker.buildRequestBody(
       locale: locale,
-      pushToken: widget.pushService.token,
+      pushToken: widget.pushManager.token,
     );
-    final response = await widget.remoteApi.fetchRemote(body);
+    final response = await widget.apiClient.fetchRemote(body);
 
     if (!(response.ok && response.url != null)) return false;
 
-    await widget.storage.setAppMode(AppMode.online);
+    await widget.store.setAppMode(AppState.online);
     _setBar(_BarState.full);
     await Future.delayed(const Duration(milliseconds: 400));
     if (!mounted) return true;
@@ -265,17 +262,17 @@ class _SplashScreenState extends State<SplashScreen> {
     if (_navigated) return;
     _navigated = true;
 
-    await content.loadLibrary();
-    await content.prepareContentEngine();
+    await webview.loadLibrary();
+    await webview.prepareContentEngine();
     if (!mounted) return;
 
-    if (widget.storage.shouldShowNotificationScreen()) {
+    if (widget.store.shouldShowNotificationScreen()) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => NotificationPermissionScreen(
-            storage: widget.storage,
-            pushService: widget.pushService,
-            connectivity: widget.connectivity,
+          builder: (_) => NotifyPage(
+            store: widget.store,
+            pushManager: widget.pushManager,
+            netChecker: widget.netChecker,
             contentUrl: url,
           ),
         ),
@@ -283,29 +280,29 @@ class _SplashScreenState extends State<SplashScreen> {
     } else {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => content.ContentScreen(
+          builder: (_) => webview.WebViewPage(
             url: url,
-            storage: widget.storage,
-            pushService: widget.pushService,
-            connectivity: widget.connectivity,
+            store: widget.store,
+            pushManager: widget.pushManager,
+            netChecker: widget.netChecker,
           ),
         ),
       );
     }
   }
 
-  void _navigateToNoInternet({required bool isFirstLaunch}) {
+  void _navigateToNoSignal({required bool isFirstLaunch}) {
     if (_navigated) return;
     _navigated = true;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => NoInternetScreen(
-          retryScreenBuilder: (_) => SplashScreen(
-            storage: widget.storage,
-            connectivity: widget.connectivity,
-            appsFlyer: widget.appsFlyer,
-            remoteApi: widget.remoteApi,
-            pushService: widget.pushService,
+        builder: (_) => NoSignalPage(
+          retryScreenBuilder: (_) => LaunchPage(
+            store: widget.store,
+            netChecker: widget.netChecker,
+            tracker: widget.tracker,
+            apiClient: widget.apiClient,
+            pushManager: widget.pushManager,
           ),
         ),
       ),
@@ -316,7 +313,7 @@ class _SplashScreenState extends State<SplashScreen> {
     if (_navigated) return;
     _navigated = true;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const GameScreen()),
+      MaterialPageRoute(builder: (_) => const PlayView()),
     );
   }
 
@@ -365,7 +362,8 @@ class _SplashScreenState extends State<SplashScreen> {
                       key: ValueKey(barAsset),
                       fit: BoxFit.fitWidth,
                       filterQuality: FilterQuality.high,
-                      errorBuilder: (context, error, stack) => const SizedBox(height: 30),
+                      errorBuilder: (context, error, stack) =>
+                          const SizedBox(height: 30),
                     ),
                   ),
                 ),

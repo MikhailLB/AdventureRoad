@@ -7,33 +7,33 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
-import '../services/connectivity_service.dart';
-import '../services/http_client.dart';
-import '../services/push_notification_service.dart';
-import '../services/storage_service.dart';
-import 'no_internet_screen.dart';
+import '../infra/net_checker.dart';
+import '../infra/http_agent.dart';
+import '../infra/push_manager.dart';
+import '../infra/data_store.dart';
+import 'no_signal_page.dart';
 
 Future<void> prepareContentEngine() async {}
 
-class ContentScreen extends StatefulWidget {
+class WebViewPage extends StatefulWidget {
   final String url;
-  final StorageService storage;
-  final PushNotificationService pushService;
-  final ConnectivityService connectivity;
+  final DataStore store;
+  final PushManager pushManager;
+  final NetChecker netChecker;
 
-  const ContentScreen({
+  const WebViewPage({
     super.key,
     required this.url,
-    required this.storage,
-    required this.pushService,
-    required this.connectivity,
+    required this.store,
+    required this.pushManager,
+    required this.netChecker,
   });
 
   @override
-  State<ContentScreen> createState() => _ContentScreenState();
+  State<WebViewPage> createState() => _WebViewPageState();
 }
 
-class _ContentScreenState extends State<ContentScreen>
+class _WebViewPageState extends State<WebViewPage>
     with WidgetsBindingObserver {
   late final WebViewController _controller;
   bool _isLoading = true;
@@ -67,7 +67,7 @@ class _ContentScreenState extends State<ContentScreen>
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(appHttpClient.userAgent)
+      ..setUserAgent(httpAgent.userAgent)
       ..setBackgroundColor(Colors.black)
       ..setNavigationDelegate(NavigationDelegate(
         onPageStarted: (_) {
@@ -124,14 +124,14 @@ class _ContentScreenState extends State<ContentScreen>
     _configurePlatform();
     _controller.loadRequest(Uri.parse(widget.url));
 
-    widget.pushService.onNotificationUrl = (url) {
+    widget.pushManager.onNotificationUrl = (url) {
       if (mounted) {
         _controller.loadRequest(Uri.parse(url));
       }
     };
 
     _connectivitySub =
-        widget.connectivity.onConnectivityChanged.listen((results) {
+        widget.netChecker.onConnectivityChanged.listen((results) {
       final lost = results.every((r) => r == ConnectivityResult.none);
       if (lost) _checkAndShowNoInternet();
     });
@@ -139,22 +139,21 @@ class _ContentScreenState extends State<ContentScreen>
 
   Future<void> _checkAndShowNoInternet() async {
     if (_showingNoInternet) return;
-    final hasInternet = await widget.connectivity.hasInternet();
+    final hasInternet = await widget.netChecker.hasInternet();
     if (hasInternet || !mounted) return;
     _showingNoInternet = true;
 
-    final currentUrl =
-        await _controller.currentUrl() ?? widget.url;
+    final currentUrl = await _controller.currentUrl() ?? widget.url;
 
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => NoInternetScreen(
-          retryScreenBuilder: (_) => ContentScreen(
+        builder: (_) => NoSignalPage(
+          retryScreenBuilder: (_) => WebViewPage(
             url: currentUrl,
-            storage: widget.storage,
-            pushService: widget.pushService,
-            connectivity: widget.connectivity,
+            store: widget.store,
+            pushManager: widget.pushManager,
+            netChecker: widget.netChecker,
           ),
         ),
       ),
@@ -167,7 +166,6 @@ class _ContentScreenState extends State<ContentScreen>
       final androidController =
           _controller.platform as AndroidWebViewController;
       androidController.setMediaPlaybackRequiresUserGesture(false);
-
       androidController.setOnShowFileSelector(_handleFileSelector);
 
       final cookieManager = AndroidWebViewCookieManager(
@@ -180,8 +178,7 @@ class _ContentScreenState extends State<ContentScreen>
     }
   }
 
-  Future<List<String>> _handleFileSelector(
-      FileSelectorParams params) async {
+  Future<List<String>> _handleFileSelector(FileSelectorParams params) async {
     try {
       final result = await FilePicker.pickFiles(
         allowMultiple: params.mode == FileSelectorMode.openMultiple,
@@ -274,14 +271,12 @@ class _ContentScreenState extends State<ContentScreen>
   function apply() {
     var head = document.head || document.documentElement;
     if (!head) return;
-    // Fix viewport meta only if needed
     var m = document.querySelector('meta[name="viewport"]');
     if (m && !/viewport-fit\s*=\s*contain/i.test(m.getAttribute('content') || '')) {
       var c = (m.getAttribute('content') || '')
         .replace(/,?\s*viewport-fit\s*=\s*\w+/ig, '').trim();
       m.setAttribute('content', c + (c ? ', ' : '') + 'viewport-fit=contain');
     }
-    // Inject/update style
     var s = document.getElementById(CSS_ID);
     if (!s) {
       s = document.createElement('style');
@@ -289,13 +284,11 @@ class _ContentScreenState extends State<ContentScreen>
       head.appendChild(s);
     }
     if (s.textContent !== CSS_TEXT) s.textContent = CSS_TEXT;
-    // Keep as last style so specificity wins
     if (head.lastElementChild !== s) head.appendChild(s);
   }
 
   apply();
 
-  // Re-apply on SPA route change (Vue/Nuxt uses history API)
   ['pushState', 'replaceState'].forEach(function(fn) {
     var orig = history[fn];
     history[fn] = function() {
@@ -306,8 +299,6 @@ class _ContentScreenState extends State<ContentScreen>
     };
   });
   window.addEventListener('popstate', function() { setTimeout(apply, 80); });
-
-  // Safety net every 2.5s — no loop risk since setInterval is not reactive
   setInterval(apply, 2500);
 })();
 ''');
@@ -323,7 +314,7 @@ class _ContentScreenState extends State<ContentScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _connectivitySub?.cancel();
-    widget.pushService.onNotificationUrl = null;
+    widget.pushManager.onNotificationUrl = null;
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,

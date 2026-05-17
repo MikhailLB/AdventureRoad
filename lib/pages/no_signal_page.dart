@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
-class NoInternetScreen extends StatefulWidget {
+class NoSignalPage extends StatefulWidget {
   final WidgetBuilder retryScreenBuilder;
 
-  const NoInternetScreen({super.key, required this.retryScreenBuilder});
+  const NoSignalPage({super.key, required this.retryScreenBuilder});
 
   @override
-  State<NoInternetScreen> createState() => _NoInternetScreenState();
+  State<NoSignalPage> createState() => _NoSignalPageState();
 }
 
-class _NoInternetScreenState extends State<NoInternetScreen>
+class _NoSignalPageState extends State<NoSignalPage>
     with TickerProviderStateMixin {
   bool _isRetrying = false;
   late AnimationController _pulseCtrl;
@@ -50,7 +50,6 @@ class _NoInternetScreenState extends State<NoInternetScreen>
     await _btnCtrl.forward();
     await _btnCtrl.reverse();
     setState(() => _isRetrying = true);
-    // Small delay so spinner is visible
     await Future.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
@@ -69,7 +68,6 @@ class _NoInternetScreenState extends State<NoInternetScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Pulsing icon
                 AnimatedBuilder(
                   animation: _pulseAnim,
                   builder: (_, _) => Transform.scale(
@@ -120,7 +118,6 @@ class _NoInternetScreenState extends State<NoInternetScreen>
 
                 const SizedBox(height: 48),
 
-                // Retry button
                 ScaleTransition(
                   scale: _btnScale,
                   child: SizedBox(

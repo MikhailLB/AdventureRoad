@@ -1,8 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/app_mode.dart';
+import '../data/app_state.dart';
 
-class StorageService {
+class DataStore {
   static const _keyAppMode = 'app_mode';
   static const _keySavedUrl = 'sv_u';
   static const _keyUrlExpires = 'url_expires';
@@ -18,17 +18,13 @@ class StorageService {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  // -- App Mode --
-
-  AppMode getAppMode() {
-    return AppMode.fromString(_prefs.getString(_keyAppMode));
+  AppState getAppMode() {
+    return AppState.fromString(_prefs.getString(_keyAppMode));
   }
 
-  Future<void> setAppMode(AppMode mode) async {
+  Future<void> setAppMode(AppState mode) async {
     await _prefs.setString(_keyAppMode, mode.toStorageString());
   }
-
-  // -- Saved URL (secure) --
 
   Future<String?> getSavedUrl() async {
     return _secure.read(key: _keySavedUrl);
@@ -37,8 +33,6 @@ class StorageService {
   Future<void> setSavedUrl(String url) async {
     await _secure.write(key: _keySavedUrl, value: url);
   }
-
-  // -- URL Expiry --
 
   int? getUrlExpires() => _prefs.getInt(_keyUrlExpires);
 
@@ -52,8 +46,6 @@ class StorageService {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     return now >= expires;
   }
-
-  // -- Notification Permission --
 
   bool isNotificationGranted() =>
       _prefs.getBool(_keyNotificationGranted) ?? false;
@@ -83,8 +75,6 @@ class StorageService {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     return now >= skipUntil;
   }
-
-  // -- One-time Push URL (secure) --
 
   Future<String?> getPushUrl() async {
     return _secure.read(key: _keyPushUrl);

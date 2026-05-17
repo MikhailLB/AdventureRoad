@@ -1,32 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import '../config/app_settings.dart';
-import '../services/connectivity_service.dart';
-import '../services/push_notification_service.dart';
-import '../services/storage_service.dart';
-import 'content_screen.dart' deferred as content;
+import '../cfg/app_config.dart';
+import '../infra/net_checker.dart';
+import '../infra/push_manager.dart';
+import '../infra/data_store.dart';
+import 'web_view_page.dart' deferred as webview;
 
-class NotificationPermissionScreen extends StatefulWidget {
-  final StorageService storage;
-  final PushNotificationService pushService;
-  final ConnectivityService connectivity;
+class NotifyPage extends StatefulWidget {
+  final DataStore store;
+  final PushManager pushManager;
+  final NetChecker netChecker;
   final String contentUrl;
 
-  const NotificationPermissionScreen({
+  const NotifyPage({
     super.key,
-    required this.storage,
-    required this.pushService,
-    required this.connectivity,
+    required this.store,
+    required this.pushManager,
+    required this.netChecker,
     required this.contentUrl,
   });
 
   @override
-  State<NotificationPermissionScreen> createState() =>
-      _NotificationPermissionScreenState();
+  State<NotifyPage> createState() => _NotifyPageState();
 }
 
-class _NotificationPermissionScreenState
-    extends State<NotificationPermissionScreen> {
+class _NotifyPageState extends State<NotifyPage> {
   VideoPlayerController? _controller;
   bool _videoReady = false;
   Orientation? _currentOrientation;
@@ -83,34 +81,34 @@ class _NotificationPermissionScreenState
   }
 
   void _onAccept() async {
-    final granted = await widget.pushService.requestPermission();
+    final granted = await widget.pushManager.requestPermission();
     if (!mounted) return;
     if (!granted) {
       final skipUntil = DateTime.now().millisecondsSinceEpoch ~/ 1000 +
-          AppSettings.notificationRetryDelaySeconds;
-      await widget.storage.setNotificationSkipUntil(skipUntil);
+          AppConfig.notificationRetryDelaySeconds;
+      await widget.store.setNotificationSkipUntil(skipUntil);
     }
     _goToContent();
   }
 
   void _onSkip() async {
     final skipUntil = DateTime.now().millisecondsSinceEpoch ~/ 1000 +
-        AppSettings.notificationRetryDelaySeconds;
-    await widget.storage.setNotificationSkipUntil(skipUntil);
+        AppConfig.notificationRetryDelaySeconds;
+    await widget.store.setNotificationSkipUntil(skipUntil);
     if (!mounted) return;
     _goToContent();
   }
 
   Future<void> _goToContent() async {
-    await content.loadLibrary();
+    await webview.loadLibrary();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => content.ContentScreen(
+        builder: (_) => webview.WebViewPage(
           url: widget.contentUrl,
-          storage: widget.storage,
-          pushService: widget.pushService,
-          connectivity: widget.connectivity,
+          store: widget.store,
+          pushManager: widget.pushManager,
+          netChecker: widget.netChecker,
         ),
       ),
     );
@@ -129,7 +127,6 @@ class _NotificationPermissionScreenState
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Video background
             if (_videoReady && _controller != null)
               SizedBox.expand(
                 child: FittedBox(
@@ -144,10 +141,7 @@ class _NotificationPermissionScreenState
             else
               Container(color: const Color(0xFF1A1A2E)),
 
-            // Buttons — portrait: column at bottom center
-            // Buttons — landscape: row at bottom right
             if (!isLandscape)
-              // Portrait: column at bottom center
               Positioned(
                 left: size.width * 0.08,
                 right: size.width * 0.08,
@@ -162,7 +156,6 @@ class _NotificationPermissionScreenState
                 ),
               )
             else
-              // Landscape: Accept then Skip, vertically, near bottom
               Positioned(
                 left: 0,
                 right: 0,
@@ -232,7 +225,7 @@ class _YesButtonState extends State<_YesButton>
         builder: (_, _) => AnimatedScale(
           scale: _pressed ? 0.96 : 1.0,
           duration: const Duration(milliseconds: 80),
-            child: Container(
+          child: Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(vertical: widget.compact ? 12 : 18),
             decoration: BoxDecoration(
@@ -260,7 +253,7 @@ class _YesButtonState extends State<_YesButton>
               ],
             ),
             child: Center(
-              child:                 Text(
+              child: Text(
                 'Accept',
                 style: TextStyle(
                   color: const Color(0xFF1A0A00),
@@ -300,7 +293,7 @@ class _SkipButtonState extends State<_SkipButton> {
       child: AnimatedOpacity(
         opacity: _pressed ? 0.5 : 0.85,
         duration: const Duration(milliseconds: 80),
-              child: Padding(
+        child: Padding(
           padding: EdgeInsets.symmetric(vertical: widget.compact ? 4 : 8),
           child: Center(
             child: Text(

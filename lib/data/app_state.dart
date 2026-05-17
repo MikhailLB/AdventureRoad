@@ -1,26 +1,26 @@
-enum AppMode {
+enum AppState {
   online,
   offline,
   pending;
 
-  static AppMode fromString(String? value) {
+  static AppState fromString(String? value) {
     switch (value) {
       case 'online':
-        return AppMode.online;
+        return AppState.online;
       case 'offline':
-        return AppMode.offline;
+        return AppState.offline;
       default:
-        return AppMode.pending;
+        return AppState.pending;
     }
   }
 
   String toStorageString() {
     switch (this) {
-      case AppMode.online:
+      case AppState.online:
         return 'online';
-      case AppMode.offline:
+      case AppState.offline:
         return 'offline';
-      case AppMode.pending:
+      case AppState.pending:
         return 'pending';
     }
   }

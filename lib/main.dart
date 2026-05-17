@@ -3,13 +3,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'app.dart';
-import 'services/storage_service.dart';
-import 'services/connectivity_service.dart';
-import 'services/appsflyer_service.dart';
-import 'services/remote_service.dart';
-import 'services/push_notification_service.dart';
-import 'services/http_client.dart';
+import 'bootstrap.dart';
+import 'infra/data_store.dart';
+import 'infra/net_checker.dart';
+import 'infra/analytics_tracker.dart';
+import 'infra/api_client.dart';
+import 'infra/push_manager.dart';
+import 'infra/http_agent.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,21 +35,21 @@ void main() async {
     statusBarIconBrightness: Brightness.light,
   ));
 
-  await appHttpClient.init();
+  await httpAgent.init();
 
-  final storage = StorageService();
-  await storage.init();
+  final store = DataStore();
+  await store.init();
 
-  final connectivity = ConnectivityService();
-  final appsFlyer = AppsFlyerService();
-  final remoteApi = RemoteService(storage);
-  final pushService = PushNotificationService(storage);
+  final netChecker = NetChecker();
+  final tracker = AnalyticsTracker();
+  final apiClient = ApiClient(store);
+  final pushManager = PushManager(store);
 
-  runApp(ChickenTripApp(
-    storage: storage,
-    connectivity: connectivity,
-    appsFlyer: appsFlyer,
-    remoteApi: remoteApi,
-    pushService: pushService,
+  runApp(StreetSurgeApp(
+    store: store,
+    netChecker: netChecker,
+    tracker: tracker,
+    apiClient: apiClient,
+    pushManager: pushManager,
   ));
 }

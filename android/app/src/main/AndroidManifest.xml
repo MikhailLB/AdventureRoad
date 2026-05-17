@@ -40,7 +40,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="chickentrip2.onelink.me"
+                    android:host="adventureroad.onelink.me"
                     android:pathPrefix="/cGlc" />
             </intent-filter>
         </activity>

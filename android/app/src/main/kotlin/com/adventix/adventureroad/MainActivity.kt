@@ -1,6 +1,5 @@
-package com.chicktripgsgame.chickentrip2
+package com.adventix.adventureroad
 
 import io.flutter.embedding.android.FlutterActivity
 
 class MainActivity : FlutterActivity()
-
