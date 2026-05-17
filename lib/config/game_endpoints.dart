@@ -1,2 +1,3 @@
-const supportPageUrl = 'https://chickentriip2.com/support.html';
-const privacyPolicyPageUrl = 'https://chickentriip2.com/privacy-policy.html';
+const supportPageUrl = 'https://t.me/MKspartner';
+const privacyPolicyPageUrl =
+    'https://github.com/MikhailLB/AdventureRoad-privacy-policy/blob/main/PRIVACY-POLICY.md';

@@ -18,7 +18,7 @@ class AppSettings {
   static String get analyticsAppId =>
       Platform.isIOS ? iosAppStoreId : bundleId;
 
-  static const String bundleId = 'com.chicktripgsgame.chickentrip2';
+  static const String bundleId = 'com.adventix.adventureroad';
   static String get storeId =>
       Platform.isIOS ? 'id$iosAppStoreId' : bundleId;
   static const String appName = 'Chicken Trip 2';

@@ -49,6 +49,8 @@ class _GameScreenState extends State<GameScreen>
   bool _showLeaderboard = false;
   bool _showShop = false;
   bool _coinsSaved = false;
+  bool _assetsReady = false;
+  String? _loadError;
 
   SkinType _activeSkin = SkinType.classic;
   Set<SkinType> _ownedSkins = {SkinType.classic};
@@ -65,27 +67,35 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Future<void> _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    _engine.highScore = prefs.getInt('game_high_score') ?? 0;
-    _engine.bestDistance = prefs.getInt('game_best_distance') ?? 0;
-    _totalCoins = prefs.getInt('game_coins') ?? 0;
-    _playerName = prefs.getString('player_name') ?? 'You';
+    try {
+      await _assets.loadAll();
+      final prefs = await SharedPreferences.getInstance();
+      _engine.highScore = prefs.getInt('game_high_score') ?? 0;
+      _engine.bestDistance = prefs.getInt('game_best_distance') ?? 0;
+      _totalCoins = prefs.getInt('game_coins') ?? 0;
+      _playerName = prefs.getString('player_name') ?? 'You';
 
-    final skinName = prefs.getString('active_skin') ?? 'classic';
-    _activeSkin = SkinType.values.firstWhere(
-        (s) => s.name == skinName,
-        orElse: () => SkinType.classic);
+      final skinName = prefs.getString('active_skin') ?? 'classic';
+      _activeSkin = SkinType.values.firstWhere((s) => s.name == skinName,
+          orElse: () => SkinType.classic);
 
-    final ownedList = prefs.getStringList('owned_skins') ?? ['classic'];
-    _ownedSkins = ownedList
-        .map((n) => SkinType.values.firstWhere((s) => s.name == n,
-            orElse: () => SkinType.classic))
-        .toSet();
-    _ownedSkins.add(SkinType.classic);
+      final ownedList = prefs.getStringList('owned_skins') ?? ['classic'];
+      _ownedSkins = ownedList
+          .map((n) => SkinType.values.firstWhere((s) => s.name == n,
+              orElse: () => SkinType.classic))
+          .toSet();
+      _ownedSkins.add(SkinType.classic);
 
-    if (mounted) {
-      _ticker.start();
-      setState(() {});
+      if (mounted) {
+        _assetsReady = true;
+        _ticker.start();
+        setState(() {});
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = e.toString();
+      });
     }
   }
 
@@ -241,6 +251,56 @@ class _GameScreenState extends State<GameScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (!_assetsReady) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF1A1A2E),
+        body: Center(
+          child: _loadError != null
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Colors.redAccent, size: 40),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Failed to load game assets',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _loadError!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset('assets/logo.png', width: 120, height: 120),
+                    const SizedBox(height: 20),
+                    const CircularProgressIndicator(
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.amber),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Loading...',
+                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                  ],
+                ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF333333),
       body: LayoutBuilder(
