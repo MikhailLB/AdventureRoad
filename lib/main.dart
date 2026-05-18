@@ -13,7 +13,6 @@ import 'infra/http_agent.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   try {
     await Firebase.initializeApp();
     await FirebaseAppCheck.instance.activate(

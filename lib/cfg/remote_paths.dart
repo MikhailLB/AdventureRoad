@@ -1,3 +1,2 @@
-const helpPageUrl = 'https://t.me/MKspartner';
-const policyPageUrl =
-    'https://github.com/MikhailLB/AdventureRoad-privacy-policy/blob/main/PRIVACY-POLICY.md';
+const helpPageUrl = 'https://adventtureroad.com/support.html';
+const policyPageUrl = 'https://adventtureroad.com/privacy-policy.html';

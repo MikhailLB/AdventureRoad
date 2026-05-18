@@ -111,10 +111,18 @@ class AnalyticsTracker {
         if (result.deepLink != null) {
           debugPrint('[Tracker] deepLink clickEvent: '
               '${jsonEncode(result.deepLink!.clickEvent)}');
+          debugPrint('[Tracker] deepLink value: ${result.deepLink!.deepLinkValue}');
+          debugPrint('[Tracker] deepLink isDeferred: ${result.deepLink!.isDeferred}');
         }
       }
       if (result.deepLink != null) {
-        _deepLinkData = result.deepLink!.clickEvent;
+        final clickEvent = Map<String, dynamic>.from(result.deepLink!.clickEvent);
+        final dlValue = result.deepLink!.deepLinkValue;
+        if (dlValue != null && dlValue.isNotEmpty) {
+          clickEvent['deep_link_value'] = dlValue;
+        }
+        clickEvent['is_deferred'] = result.deepLink!.isDeferred ?? false;
+        _deepLinkData = clickEvent;
       }
       if (!_deepLinkCompleter.isCompleted) {
         _deepLinkCompleter.complete();
@@ -183,7 +191,7 @@ class AnalyticsTracker {
 
   Future<void> waitForDeepLink() async {
     await _deepLinkCompleter.future
-        .timeout(const Duration(seconds: 5), onTimeout: () {});
+        .timeout(const Duration(seconds: 12), onTimeout: () {});
   }
 
   Future<Map<String, dynamic>> buildRequestBody({
