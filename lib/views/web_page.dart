@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class InfoScreen extends StatefulWidget {
+class WebPage extends StatefulWidget {
   final String title;
   final String url;
 
-  const InfoScreen({super.key, required this.title, required this.url});
+  const WebPage({super.key, required this.title, required this.url});
 
   @override
-  State<InfoScreen> createState() => _InfoScreenState();
+  State<WebPage> createState() => _WebPageState();
 }
 
-class _InfoScreenState extends State<InfoScreen> {
+class _WebPageState extends State<WebPage> {
   bool _opening = true;
   bool _failed = false;
 

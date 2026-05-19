@@ -1,15 +1,15 @@
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'game_assets.dart';
-import 'game_engine.dart';
+import 'media_bundle.dart';
+import 'road_controller.dart';
 
-class GamePainter extends CustomPainter {
-  final GameEngine engine;
-  final GameAssets assets;
-  final SkinType activeSkin;
+class SceneRenderer extends CustomPainter {
+  final RoadController engine;
+  final MediaBundle assets;
+  final CharSkinType activeSkin;
 
-  GamePainter({required this.engine, required this.assets, this.activeSkin = SkinType.classic});
+  SceneRenderer({required this.engine, required this.assets, this.activeSkin = CharSkinType.classic});
 
   static const Color roadColor = Color(0xFF505050);
   static const Color roadAlt = Color(0xFF484848);
@@ -38,16 +38,16 @@ class GamePainter extends CustomPainter {
     _drawVehicleShadows(canvas, size);
     _drawVehicles(canvas, size);
 
-    if (engine.state == GameState.playing ||
-        engine.state == GameState.paused ||
-        engine.state == GameState.gameOver) {
-      _drawChickenShadow(canvas);
-      _drawChicken(canvas);
+    if (engine.state == AppPhase.playing ||
+        engine.state == AppPhase.paused ||
+        engine.state == AppPhase.gameOver) {
+      _drawCharacterShadow(canvas);
+      _drawCharacter(canvas);
     }
 
     canvas.restore();
 
-    if (engine.state == GameState.gameOver) {
+    if (engine.state == AppPhase.gameOver) {
       _drawDeathOverlay(canvas, size);
     }
   }
@@ -67,15 +67,15 @@ class GamePainter extends CustomPainter {
   void _drawLanes(Canvas canvas, Size size) {
     final minLane = (engine.cameraLane - 6).floor();
     final maxLane =
-        (engine.cameraLane + size.height / GameEngine.laneHeight + 6).ceil();
+        (engine.cameraLane + size.height / RoadController.laneHeight + 6).ceil();
 
     for (int i = minLane; i <= maxLane; i++) {
       final lane = engine.lanes[i];
       if (lane == null) continue;
 
       final centerY = engine.laneScreenY(i.toDouble());
-      final top = centerY - GameEngine.laneHeight / 2;
-      final rect = Rect.fromLTWH(0, top, size.width, GameEngine.laneHeight);
+      final top = centerY - RoadController.laneHeight / 2;
+      final rect = Rect.fromLTWH(0, top, size.width, RoadController.laneHeight);
 
       if (lane.isSafe) {
         _drawSafeLane(canvas, rect, lane, size);
@@ -85,12 +85,9 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  // ─── SAFE LANE ───
-
-  void _drawSafeLane(Canvas canvas, Rect rect, LaneData lane, Size size) {
+  void _drawSafeLane(Canvas canvas, Rect rect, TrackRow lane, Size size) {
     final rng = Random(lane.index * 7);
 
-    // base grass with slight per-lane hue shift
     final shift = (rng.nextInt(3) - 1) * 8;
     final baseColor = Color.fromARGB(
         255,
@@ -110,7 +107,6 @@ class GamePainter extends CustomPainter {
         ).createShader(rect),
     );
 
-    // grass color patches
     for (int p = 0; p < 5; p++) {
       final px = rng.nextDouble() * size.width;
       final py = rect.top + rng.nextDouble() * rect.height;
@@ -122,7 +118,6 @@ class GamePainter extends CustomPainter {
       );
     }
 
-    // tiny dots / specks
     final speckPaint = Paint();
     for (int g = 0; g < 18; g++) {
       final gx = rng.nextDouble() * size.width;
@@ -132,7 +127,6 @@ class GamePainter extends CustomPainter {
       canvas.drawCircle(Offset(gx, gy), 0.8 + rng.nextDouble() * 1.5, speckPaint);
     }
 
-    // grass tufts  (V-shapes)
     final tuftPaint = Paint()
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
@@ -147,7 +141,6 @@ class GamePainter extends CustomPainter {
       canvas.drawLine(Offset(tx + 1.5, ty), Offset(tx, ty - h), tuftPaint);
     }
 
-    // small flowers
     for (int f = 0; f < 3 + rng.nextInt(3); f++) {
       final fx = rng.nextDouble() * size.width;
       final fy = rect.top + 8 + rng.nextDouble() * (rect.height - 16);
@@ -165,7 +158,6 @@ class GamePainter extends CustomPainter {
           Paint()..color = Colors.yellow.withValues(alpha: 0.8));
     }
 
-    // small fallen leaves
     final leafPaint = Paint()..style = PaintingStyle.fill;
     for (int l = 0; l < 2 + rng.nextInt(3); l++) {
       final lx = rng.nextDouble() * size.width;
@@ -190,13 +182,11 @@ class GamePainter extends CustomPainter {
       canvas.restore();
     }
 
-    // ─── Stone curbs (top and bottom) ───
     _drawStoneCurb(canvas, Rect.fromLTWH(0, rect.top, size.width, _curbH), rng, false);
     _drawStoneCurb(canvas, Rect.fromLTWH(0, rect.bottom - _curbH, size.width, _curbH), rng, true);
 
-    // ─── Decorations ───
     for (final deco in lane.decorations) {
-      final info = _decoInfo(deco.type);
+      final info = _itemMeta(deco.type);
       final s = info.baseSize * deco.scale;
 
       canvas.drawOval(
@@ -221,21 +211,17 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawStoneCurb(Canvas canvas, Rect rect, Random rng, bool flipped) {
-    // base fill
     canvas.drawRect(rect, Paint()..color = curbFace);
 
-    // top highlight
     canvas.drawRect(
       Rect.fromLTWH(rect.left, flipped ? rect.bottom - 1 : rect.top, rect.width, 1.5),
       Paint()..color = curbTop,
     );
-    // bottom shadow
     canvas.drawRect(
       Rect.fromLTWH(rect.left, flipped ? rect.top : rect.bottom - 1.5, rect.width, 1.5),
       Paint()..color = curbDark,
     );
 
-    // brick grooves
     final groovePaint = Paint()
       ..color = curbLine
       ..strokeWidth = 0.8;
@@ -253,7 +239,6 @@ class GamePainter extends CustomPainter {
       x += brickW;
       row++;
     }
-    // horizontal groove in middle
     if (rect.height > 5) {
       canvas.drawLine(
         Offset(rect.left, rect.center.dy),
@@ -263,30 +248,26 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  _DecoDrawInfo _decoInfo(DecoType type) {
+  _ItemMeta _itemMeta(SceneryKind type) {
     switch (type) {
-      case DecoType.tree:
-        return _DecoDrawInfo(assets.tree, 64);
-      case DecoType.bush1:
-        return _DecoDrawInfo(assets.bush1, 52);
-      case DecoType.bush2:
-        return _DecoDrawInfo(assets.bush2, 50);
-      case DecoType.barrier:
-        return _DecoDrawInfo(assets.barrier, 48);
-      case DecoType.fanar:
-        return _DecoDrawInfo(assets.fanar, 56);
+      case SceneryKind.tree:
+        return _ItemMeta(assets.tree, 64);
+      case SceneryKind.bush1:
+        return _ItemMeta(assets.bush1, 52);
+      case SceneryKind.bush2:
+        return _ItemMeta(assets.bush2, 50);
+      case SceneryKind.barrier:
+        return _ItemMeta(assets.barrier, 48);
+      case SceneryKind.fanar:
+        return _ItemMeta(assets.fanar, 56);
     }
   }
 
-  // ─── ROAD LANE ───
-
-  void _drawRoadLane(Canvas canvas, Rect rect, LaneData lane, Size size) {
-    // asphalt base with subtle noise
+  void _drawRoadLane(Canvas canvas, Rect rect, TrackRow lane, Size size) {
     final rng = Random(lane.index * 13);
     final baseCol = lane.index.isEven ? roadColor : roadAlt;
     canvas.drawRect(rect, Paint()..color = baseCol);
 
-    // subtle asphalt texture
     final texPaint = Paint();
     for (int n = 0; n < 20; n++) {
       final nx = rng.nextDouble() * size.width;
@@ -296,7 +277,6 @@ class GamePainter extends CustomPainter {
       canvas.drawCircle(Offset(nx, ny), 0.5 + rng.nextDouble() * 1.5, texPaint);
     }
 
-    // segment border lines
     if (lane.isSegmentStart) {
       canvas.drawRect(
         Rect.fromLTWH(0, rect.top, size.width, 3),
@@ -310,7 +290,6 @@ class GamePainter extends CustomPainter {
       );
     }
 
-    // dashed lane dividers
     if (!lane.isSegmentStart) {
       final dashPaint = Paint()
         ..color = lineWhite
@@ -323,23 +302,21 @@ class GamePainter extends CustomPainter {
       }
     }
 
-    // subtle column grid
     final gridPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.04)
       ..strokeWidth = 0.8;
-    for (int col = 1; col < GameEngine.numColumns; col++) {
+    for (int col = 1; col < RoadController.numColumns; col++) {
       final cx = col * engine.columnWidth;
       canvas.drawLine(Offset(cx, rect.top), Offset(cx, rect.bottom), gridPaint);
     }
 
-    // road decorations
     for (final rd in lane.roadDecorations) {
       switch (rd.type) {
-        case RoadDecoType.manhole:
+        case PavementKind.manhole:
           _drawImage(canvas, assets.hatch2, rd.x - 16, rect.center.dy - 16, 32, 32);
-        case RoadDecoType.manhole2:
+        case PavementKind.manhole2:
           _drawImage(canvas, assets.hatch2, rd.x - 16, rect.center.dy - 16, 32, 32);
-        case RoadDecoType.skidMark:
+        case PavementKind.skidMark:
           final skidPaint = Paint()
             ..color = Colors.black.withValues(alpha: 0.12)
             ..strokeWidth = 2.5
@@ -354,7 +331,7 @@ class GamePainter extends CustomPainter {
             Offset(rd.x + 22, rect.center.dy + 8),
             skidPaint,
           );
-        case RoadDecoType.crack:
+        case PavementKind.crack:
           final crackPaint = Paint()
             ..color = Colors.black.withValues(alpha: 0.10)
             ..strokeWidth = 1.2
@@ -369,7 +346,6 @@ class GamePainter extends CustomPainter {
       }
     }
 
-    // direction arrows
     final arrowPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.06)
       ..style = PaintingStyle.fill;
@@ -394,12 +370,10 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  // ─── COINS ───
-
   void _drawCoins(Canvas canvas, Size size) {
     final minLane = (engine.cameraLane - 4).floor();
     final maxLane =
-        (engine.cameraLane + size.height / GameEngine.laneHeight + 4).ceil();
+        (engine.cameraLane + size.height / RoadController.laneHeight + 4).ceil();
     final colW = engine.columnWidth;
     final time = engine.menuTime;
 
@@ -413,7 +387,6 @@ class GamePainter extends CustomPainter {
         final cx = coin.column * colW + colW / 2;
         final bobOffset = sin(time * 4.5 + coin.column * 1.7 + i * 0.3) * 3.5;
 
-        // ground shadow
         canvas.drawOval(
           Rect.fromCenter(
             center: Offset(cx, laneY + 12),
@@ -423,7 +396,6 @@ class GamePainter extends CustomPainter {
           Paint()..color = const Color(0x33000000),
         );
 
-        // coin image
         _drawImage(
           canvas,
           assets.hatchCoin,
@@ -433,7 +405,6 @@ class GamePainter extends CustomPainter {
           28,
         );
 
-        // glow shimmer
         final shimmer =
             ((sin(time * 6 + coin.column * 2.5) + 1) / 2 * 0.3)
                 .clamp(0.0, 0.3);
@@ -448,12 +419,10 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  // ─── VEHICLES ───
-
   void _drawVehicleShadows(Canvas canvas, Size size) {
     final minLane = (engine.cameraLane - 4).floor();
     final maxLane =
-        (engine.cameraLane + size.height / GameEngine.laneHeight + 4).ceil();
+        (engine.cameraLane + size.height / RoadController.laneHeight + 4).ceil();
     final shadowPaint = Paint()..color = const Color(0x55000000);
 
     for (int i = minLane; i <= maxLane; i++) {
@@ -463,7 +432,7 @@ class GamePainter extends CustomPainter {
 
       for (final vehicle in lane.vehicles) {
         final img = assets.imageForVehicle(vehicle.type);
-        final carH = GameEngine.laneHeight * 0.85;
+        final carH = RoadController.laneHeight * 0.85;
         final aspect = img.width / img.height;
         final carW = carH * aspect;
         canvas.drawOval(
@@ -481,7 +450,7 @@ class GamePainter extends CustomPainter {
   void _drawVehicles(Canvas canvas, Size size) {
     final minLane = (engine.cameraLane - 4).floor();
     final maxLane =
-        (engine.cameraLane + size.height / GameEngine.laneHeight + 4).ceil();
+        (engine.cameraLane + size.height / RoadController.laneHeight + 4).ceil();
 
     for (int i = minLane; i <= maxLane; i++) {
       final lane = engine.lanes[i];
@@ -490,7 +459,7 @@ class GamePainter extends CustomPainter {
 
       for (final vehicle in lane.vehicles) {
         final img = assets.imageForVehicle(vehicle.type);
-        final carH = GameEngine.laneHeight * 0.85;
+        final carH = RoadController.laneHeight * 0.85;
         final aspect = img.width / img.height;
         final carW = carH * aspect;
 
@@ -503,9 +472,7 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  // ─── CHICKEN ───
-
-  void _drawChickenShadow(Canvas canvas) {
+  void _drawCharacterShadow(Canvas canvas) {
     final laneY = engine.laneScreenY(engine.chickenLane.toDouble());
     final shadowW = engine.columnWidth * 0.6;
     final shadowX = engine.chickenScreenX + 2;
@@ -522,11 +489,11 @@ class GamePainter extends CustomPainter {
     );
   }
 
-  void _drawChicken(Canvas canvas) {
-    final isDead = engine.state == GameState.gameOver;
-    final skinScale = activeSkin == SkinType.classic ? 1.0 : 2.0;
-    final chickenSize = engine.columnWidth * 0.85 * skinScale;
-    final half = chickenSize / 2;
+  void _drawCharacter(Canvas canvas) {
+    final isDead = engine.state == AppPhase.gameOver;
+    final skinScale = activeSkin == CharSkinType.classic ? 1.0 : 2.0;
+    final charSize = engine.columnWidth * 0.85 * skinScale;
+    final half = charSize / 2;
 
     canvas.save();
     canvas.translate(engine.chickenScreenX, engine.chickenScreenY);
@@ -542,7 +509,7 @@ class GamePainter extends CustomPainter {
       final t = engine.deathTimer.clamp(0.0, 1.0);
       canvas.rotate(t * 0.12);
       canvas.scale(1.0 + t * 0.2, 1.0 - t * 0.35);
-      _drawImage(canvas, img, -half, -half, chickenSize, chickenSize);
+      _drawImage(canvas, img, -half, -half, charSize, charSize);
     } else {
       final img = assets.skinAlive(activeSkin);
       if (engine.hopProgress >= 1.0 && engine.idleTime > 0.3) {
@@ -554,13 +521,11 @@ class GamePainter extends CustomPainter {
         final stretch = 1.0 + sin(engine.hopProgress * pi) * 0.12;
         canvas.scale(squash, stretch);
       }
-      _drawImage(canvas, img, -half, -half, chickenSize, chickenSize);
+      _drawImage(canvas, img, -half, -half, charSize, charSize);
     }
 
     canvas.restore();
   }
-
-  // ─── DEATH ───
 
   void _drawDeathOverlay(Canvas canvas, Size size) {
     final flashAlpha = (1.0 - engine.deathTimer * 3).clamp(0.0, 0.4);
@@ -603,8 +568,6 @@ class GamePainter extends CustomPainter {
     }
   }
 
-  // ─── UTIL ───
-
   void _drawImage(
       Canvas canvas, ui.Image img, double x, double y, double w, double h) {
     final src =
@@ -618,8 +581,8 @@ class GamePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-class _DecoDrawInfo {
+class _ItemMeta {
   final ui.Image img;
   final double baseSize;
-  _DecoDrawInfo(this.img, this.baseSize);
+  _ItemMeta(this.img, this.baseSize);
 }

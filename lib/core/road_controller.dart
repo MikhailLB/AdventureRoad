@@ -1,22 +1,22 @@
 import 'dart:math';
-import 'game_assets.dart';
+import 'media_bundle.dart';
 
-enum GameState { menu, playing, paused, gameOver }
+enum AppPhase { menu, playing, paused, gameOver }
 
-enum DecoType {
+enum SceneryKind {
   tree, bush1, bush2, barrier, fanar,
 }
 
-enum RoadDecoType { manhole, manhole2, skidMark, crack }
+enum PavementKind { manhole, manhole2, skidMark, crack }
 
 
-class Vehicle {
-  final VehicleType type;
+class TrafficUnit {
+  final TrafficKind type;
   double x;
   final double speed;
   final bool movingRight;
 
-  Vehicle({
+  TrafficUnit({
     required this.type,
     required this.x,
     required this.speed,
@@ -25,9 +25,9 @@ class Vehicle {
 
   double get hitboxWidth {
     switch (type) {
-      case VehicleType.fireFighter:
+      case TrafficKind.fireFighter:
         return 95;
-      case VehicleType.van:
+      case TrafficKind.van:
         return 80;
       default:
         return 70;
@@ -35,53 +35,52 @@ class Vehicle {
   }
 }
 
-class Deco {
-  final DecoType type;
+class SceneryItem {
+  final SceneryKind type;
   final double x;
   final double scale;
   final bool flipX;
-  Deco(this.type, this.x, [this.scale = 1.0, this.flipX = false]);
+  SceneryItem(this.type, this.x, [this.scale = 1.0, this.flipX = false]);
 
   double get effectiveWidth {
     const baseSizes = {
-      DecoType.tree: 58.0,
-      DecoType.bush1: 48.0,
-      DecoType.bush2: 46.0,
-      DecoType.barrier: 44.0,
-      DecoType.fanar: 32.0,
+      SceneryKind.tree: 58.0,
+      SceneryKind.bush1: 48.0,
+      SceneryKind.bush2: 46.0,
+      SceneryKind.barrier: 44.0,
+      SceneryKind.fanar: 32.0,
     };
     return (baseSizes[type] ?? 40) * scale;
   }
-
 }
 
-class RoadDeco {
-  final RoadDecoType type;
+class PavementMark {
+  final PavementKind type;
   final double x;
-  RoadDeco(this.type, this.x);
+  PavementMark(this.type, this.x);
 }
 
-class Coin {
+class Token {
   final int column;
   bool collected = false;
-  Coin(this.column);
+  Token(this.column);
 }
 
-class LaneData {
+class TrackRow {
   final int index;
   final bool isSafe;
   final bool movingRight;
   final double speed;
-  final List<Vehicle> vehicles = [];
-  final List<Deco> decorations = [];
-  final List<RoadDeco> roadDecorations = [];
-  final List<Coin> coins = [];
+  final List<TrafficUnit> vehicles = [];
+  final List<SceneryItem> decorations = [];
+  final List<PavementMark> roadDecorations = [];
+  final List<Token> coins = [];
   double spawnTimer;
   double spawnInterval;
   bool isSegmentStart;
   bool isSegmentEnd;
 
-  LaneData({
+  TrackRow({
     required this.index,
     this.isSafe = false,
     this.movingRight = true,
@@ -93,33 +92,33 @@ class LaneData {
   }) : spawnTimer = initialSpawnTimer ?? 0;
 }
 
-class _DecoSlot {
-  final DecoType type;
+class _SlotMeta {
+  final SceneryKind type;
   final double normX;
   final double scale;
   final bool flipX;
-  const _DecoSlot(this.type, this.normX, [this.scale = 1.0, this.flipX = false]);
+  const _SlotMeta(this.type, this.normX, [this.scale = 1.0, this.flipX = false]);
 }
 
-const List<List<_DecoSlot>> _patterns = [
-  [_DecoSlot(DecoType.fanar, 0.08, 1.0, true), _DecoSlot(DecoType.bush1, 0.5), _DecoSlot(DecoType.fanar, 0.92)],
-  [_DecoSlot(DecoType.tree, 0.2, 1.05), _DecoSlot(DecoType.barrier, 0.75)],
-  [_DecoSlot(DecoType.bush2, 0.15), _DecoSlot(DecoType.bush1, 0.5, 0.95), _DecoSlot(DecoType.bush2, 0.85)],
-  [_DecoSlot(DecoType.fanar, 0.1, 1.0, true), _DecoSlot(DecoType.tree, 0.4, 1.1), _DecoSlot(DecoType.bush1, 0.72)],
-  [_DecoSlot(DecoType.tree, 0.5, 1.15)],
-  [_DecoSlot(DecoType.barrier, 0.18), _DecoSlot(DecoType.bush2, 0.5, 1.0), _DecoSlot(DecoType.barrier, 0.82)],
-  [_DecoSlot(DecoType.bush1, 0.15, 0.9), _DecoSlot(DecoType.tree, 0.38, 1.0), _DecoSlot(DecoType.bush2, 0.62, 0.9)],
-  [_DecoSlot(DecoType.tree, 0.25, 1.0), _DecoSlot(DecoType.tree, 0.75, 0.95)],
-  [_DecoSlot(DecoType.fanar, 0.12, 1.0, true), _DecoSlot(DecoType.fanar, 0.88)],
-  [_DecoSlot(DecoType.barrier, 0.1), _DecoSlot(DecoType.tree, 0.35, 1.05), _DecoSlot(DecoType.bush1, 0.6), _DecoSlot(DecoType.fanar, 0.88)],
+const List<List<_SlotMeta>> _layouts = [
+  [_SlotMeta(SceneryKind.fanar, 0.08, 1.0, true), _SlotMeta(SceneryKind.bush1, 0.5), _SlotMeta(SceneryKind.fanar, 0.92)],
+  [_SlotMeta(SceneryKind.tree, 0.2, 1.05), _SlotMeta(SceneryKind.barrier, 0.75)],
+  [_SlotMeta(SceneryKind.bush2, 0.15), _SlotMeta(SceneryKind.bush1, 0.5, 0.95), _SlotMeta(SceneryKind.bush2, 0.85)],
+  [_SlotMeta(SceneryKind.fanar, 0.1, 1.0, true), _SlotMeta(SceneryKind.tree, 0.4, 1.1), _SlotMeta(SceneryKind.bush1, 0.72)],
+  [_SlotMeta(SceneryKind.tree, 0.5, 1.15)],
+  [_SlotMeta(SceneryKind.barrier, 0.18), _SlotMeta(SceneryKind.bush2, 0.5, 1.0), _SlotMeta(SceneryKind.barrier, 0.82)],
+  [_SlotMeta(SceneryKind.bush1, 0.15, 0.9), _SlotMeta(SceneryKind.tree, 0.38, 1.0), _SlotMeta(SceneryKind.bush2, 0.62, 0.9)],
+  [_SlotMeta(SceneryKind.tree, 0.25, 1.0), _SlotMeta(SceneryKind.tree, 0.75, 0.95)],
+  [_SlotMeta(SceneryKind.fanar, 0.12, 1.0, true), _SlotMeta(SceneryKind.fanar, 0.88)],
+  [_SlotMeta(SceneryKind.barrier, 0.1), _SlotMeta(SceneryKind.tree, 0.35, 1.05), _SlotMeta(SceneryKind.bush1, 0.6), _SlotMeta(SceneryKind.fanar, 0.88)],
   [],
-  [_DecoSlot(DecoType.bush1, 0.3, 1.05)],
-  [_DecoSlot(DecoType.fanar, 0.05, 1.0, true), _DecoSlot(DecoType.barrier, 0.45), _DecoSlot(DecoType.fanar, 0.95)],
-  [_DecoSlot(DecoType.bush2, 0.18, 0.85), _DecoSlot(DecoType.tree, 0.45, 1.1), _DecoSlot(DecoType.bush1, 0.78, 0.85)],
-  [_DecoSlot(DecoType.barrier, 0.22), _DecoSlot(DecoType.bush2, 0.5, 0.9), _DecoSlot(DecoType.barrier, 0.78)],
+  [_SlotMeta(SceneryKind.bush1, 0.3, 1.05)],
+  [_SlotMeta(SceneryKind.fanar, 0.05, 1.0, true), _SlotMeta(SceneryKind.barrier, 0.45), _SlotMeta(SceneryKind.fanar, 0.95)],
+  [_SlotMeta(SceneryKind.bush2, 0.18, 0.85), _SlotMeta(SceneryKind.tree, 0.45, 1.1), _SlotMeta(SceneryKind.bush1, 0.78, 0.85)],
+  [_SlotMeta(SceneryKind.barrier, 0.22), _SlotMeta(SceneryKind.bush2, 0.5, 0.9), _SlotMeta(SceneryKind.barrier, 0.78)],
 ];
 
-class GameEngine {
+class RoadController {
   static const double laneHeight = 80.0;
   static const int numColumns = 5;
   static const int _belowLanes = 4;
@@ -131,7 +130,7 @@ class GameEngine {
   double screenHeight = 0;
   double get columnWidth => screenWidth / numColumns;
 
-  GameState state = GameState.menu;
+  AppPhase state = AppPhase.menu;
   int score = 0;
   int highScore = 0;
   int collectedCoins = 0;
@@ -139,7 +138,7 @@ class GameEngine {
   double multiplier = 1.0;
   int stepsTaken = 0;
   double idleTime = 0;
-  int facingDir = 0; // -1 left, 0 forward, 1 right
+  int facingDir = 0;
 
   int chickenLane = 0;
   int chickenCol = 2;
@@ -157,7 +156,7 @@ class GameEngine {
 
   int get distance => (chickenLane * metersPerLane).round();
 
-  final Map<int, LaneData> lanes = {};
+  final Map<int, TrackRow> lanes = {};
   int _maxGenerated = -999;
 
   void setSize(double w, double h) {
@@ -166,7 +165,7 @@ class GameEngine {
   }
 
   void startGame() {
-    state = GameState.playing;
+    state = AppPhase.playing;
     score = 0;
     collectedCoins = 0;
     multiplier = 1.0;
@@ -188,7 +187,7 @@ class GameEngine {
   }
 
   void returnToMenu() {
-    state = GameState.menu;
+    state = AppPhase.menu;
     lanes.clear();
     _maxGenerated = -999;
     chickenLane = 0;
@@ -204,10 +203,10 @@ class GameEngine {
   }
 
   void togglePause() {
-    if (state == GameState.playing) {
-      state = GameState.paused;
-    } else if (state == GameState.paused) {
-      state = GameState.playing;
+    if (state == AppPhase.playing) {
+      state = AppPhase.paused;
+    } else if (state == AppPhase.paused) {
+      state = AppPhase.playing;
     }
   }
 
@@ -225,7 +224,7 @@ class GameEngine {
     _maxGenerated = target;
   }
 
-  LaneData _createLane(int index) {
+  TrackRow _createLane(int index) {
     if (index <= 1) return _safeLane(index);
 
     final adjusted = index - 2;
@@ -245,7 +244,7 @@ class GameEngine {
     final maxInterval = (3.2 - difficulty * 1.2).clamp(1.4, 3.2);
     final interval = minInterval + _rng.nextDouble() * (maxInterval - minInterval);
 
-    final lane = LaneData(
+    final lane = TrackRow(
       index: index,
       isSafe: false,
       movingRight: movingRight,
@@ -257,8 +256,8 @@ class GameEngine {
     );
 
     if (_rng.nextDouble() < 0.3) {
-      final rdType = RoadDecoType.values[_rng.nextInt(RoadDecoType.values.length)];
-      lane.roadDecorations.add(RoadDeco(rdType, 40 + _rng.nextDouble() * (screenWidth - 80)));
+      final rdType = PavementKind.values[_rng.nextInt(PavementKind.values.length)];
+      lane.roadDecorations.add(PavementMark(rdType, 40 + _rng.nextDouble() * (screenWidth - 80)));
     }
 
     if (_rng.nextDouble() < 0.35) {
@@ -267,7 +266,7 @@ class GameEngine {
       for (int c = 0; c < numCoins; c++) {
         final col = _rng.nextInt(numColumns);
         if (usedCols.add(col)) {
-          lane.coins.add(Coin(col));
+          lane.coins.add(Token(col));
         }
       }
     }
@@ -282,11 +281,11 @@ class GameEngine {
     return 4 + _rng.nextInt(2);
   }
 
-  LaneData _safeLane(int index) {
-    final lane = LaneData(index: index, isSafe: true);
+  TrackRow _safeLane(int index) {
+    final lane = TrackRow(index: index, isSafe: true);
     if (screenWidth <= 0) return lane;
 
-    final pattern = _patterns[_rng.nextInt(_patterns.length)];
+    final pattern = _layouts[_rng.nextInt(_layouts.length)];
     final mirror = _rng.nextBool();
     final scaleJitter = 0.9 + _rng.nextDouble() * 0.15;
 
@@ -295,8 +294,8 @@ class GameEngine {
       if (mirror) normX = 1.0 - normX;
       final x = 20 + normX * (screenWidth - 40);
       final scale = slot.scale * scaleJitter;
-      final flip = slot.type == DecoType.fanar ? slot.flipX ^ mirror : false;
-      lane.decorations.add(Deco(slot.type, x, scale, flip));
+      final flip = slot.type == SceneryKind.fanar ? slot.flipX ^ mirror : false;
+      lane.decorations.add(SceneryItem(slot.type, x, scale, flip));
     }
     return lane;
   }
@@ -308,13 +307,13 @@ class GameEngine {
 
       final numCars = 1 + _rng.nextInt(2);
       for (int c = 0; c < numCars; c++) {
-        final type = VehicleType.values[_rng.nextInt(VehicleType.values.length)];
+        final type = TrafficKind.values[_rng.nextInt(TrafficKind.values.length)];
         final x = 60 + _rng.nextDouble() * (screenWidth - 120);
 
         final tooClose = lane.vehicles.any((v) => (v.x - x).abs() < 180);
         if (tooClose) continue;
 
-        lane.vehicles.add(Vehicle(
+        lane.vehicles.add(TrafficUnit(
           type: type,
           x: x,
           speed: lane.speed * (0.9 + _rng.nextDouble() * 0.2),
@@ -360,7 +359,7 @@ class GameEngine {
   void update(double dt) {
     menuTime += dt;
 
-    if (state == GameState.gameOver) {
+    if (state == AppPhase.gameOver) {
       deathTimer += dt;
       shakeIntensity *= 0.92;
       shakeX = ((_rng.nextDouble() - 0.5) * 2) * shakeIntensity;
@@ -368,7 +367,7 @@ class GameEngine {
       _updateVehicles(dt * 0.15);
       return;
     }
-    if (state != GameState.playing) return;
+    if (state != AppPhase.playing) return;
 
     if (chickenLane + 20 > _maxGenerated) {
       _generateUpTo(_maxGenerated + 25);
@@ -408,8 +407,8 @@ class GameEngine {
     for (int i = startLane; i <= _maxGenerated; i++) {
       final lane = lanes[i];
       if (lane == null || lane.isSafe || lane.vehicles.isNotEmpty) continue;
-      final type = VehicleType.values[_rng.nextInt(VehicleType.values.length)];
-      lane.vehicles.add(Vehicle(
+      final type = TrafficKind.values[_rng.nextInt(TrafficKind.values.length)];
+      lane.vehicles.add(TrafficUnit(
         type: type,
         x: _rng.nextDouble() * screenWidth,
         speed: lane.speed * (0.9 + _rng.nextDouble() * 0.2),
@@ -446,13 +445,13 @@ class GameEngine {
 
       if (lane.vehicles.length >= 2) continue;
 
-      final type = VehicleType.values[_rng.nextInt(VehicleType.values.length)];
+      final type = TrafficKind.values[_rng.nextInt(TrafficKind.values.length)];
       final startX = lane.movingRight ? -90.0 : screenWidth + 90;
 
       final tooClose = lane.vehicles.any((v) => (v.x - startX).abs() < 160);
       if (tooClose) continue;
 
-      lane.vehicles.add(Vehicle(
+      lane.vehicles.add(TrafficUnit(
         type: type,
         x: startX,
         speed: lane.speed * (0.9 + _rng.nextDouble() * 0.2),
@@ -478,7 +477,7 @@ class GameEngine {
   }
 
   void _die() {
-    state = GameState.gameOver;
+    state = AppPhase.gameOver;
     deathTimer = 0;
     shakeIntensity = 18;
     if (score > highScore) highScore = score;
@@ -486,7 +485,7 @@ class GameEngine {
   }
 
   void moveForward() {
-    if (state != GameState.playing || hopProgress < 1.0) return;
+    if (state != AppPhase.playing || hopProgress < 1.0) return;
     _prevLane = chickenLane;
     _prevCol = chickenCol;
     chickenLane++;
@@ -499,7 +498,7 @@ class GameEngine {
   }
 
   void moveBackward() {
-    if (state != GameState.playing || hopProgress < 1.0) return;
+    if (state != AppPhase.playing || hopProgress < 1.0) return;
     if (chickenLane <= 0) return;
     _prevLane = chickenLane;
     _prevCol = chickenCol;
@@ -510,7 +509,7 @@ class GameEngine {
   }
 
   void moveLeft() {
-    if (state != GameState.playing || hopProgress < 1.0) return;
+    if (state != AppPhase.playing || hopProgress < 1.0) return;
     if (chickenCol <= 0) return;
     _prevCol = chickenCol;
     _prevLane = chickenLane;
@@ -521,7 +520,7 @@ class GameEngine {
   }
 
   void moveRight() {
-    if (state != GameState.playing || hopProgress < 1.0) return;
+    if (state != AppPhase.playing || hopProgress < 1.0) return;
     if (chickenCol >= numColumns - 1) return;
     _prevCol = chickenCol;
     _prevLane = chickenLane;

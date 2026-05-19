@@ -1,16 +1,16 @@
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 
-enum SkinType { classic, golden, steelwing }
+enum CharSkinType { classic, golden, steelwing }
 
-class SkinInfo {
-  final SkinType type;
+class CharacterSkin {
+  final CharSkinType type;
   final String name;
   final String asset;
   final String deadAsset;
   final int price;
 
-  const SkinInfo({
+  const CharacterSkin({
     required this.type,
     required this.name,
     required this.asset,
@@ -19,23 +19,23 @@ class SkinInfo {
   });
 }
 
-const List<SkinInfo> allSkins = [
-  SkinInfo(
-    type: SkinType.classic,
+const List<CharacterSkin> allCharSkins = [
+  CharacterSkin(
+    type: CharSkinType.classic,
     name: 'Classic',
     asset: 'assets/chicken.webp',
     deadAsset: 'assets/cheken_rip.webp',
     price: 0,
   ),
-  SkinInfo(
-    type: SkinType.golden,
+  CharacterSkin(
+    type: CharSkinType.golden,
     name: 'Golden',
     asset: 'assets/Golden.webp',
     deadAsset: 'assets/Golden-dead.webp',
     price: 49999,
   ),
-  SkinInfo(
-    type: SkinType.steelwing,
+  CharacterSkin(
+    type: CharSkinType.steelwing,
     name: 'Steelwing',
     asset: 'assets/Steelwing.webp',
     deadAsset: 'assets/Steelwing-dead.webp',
@@ -43,10 +43,10 @@ const List<SkinInfo> allSkins = [
   ),
 ];
 
-class GameAssets {
-  static final GameAssets _instance = GameAssets._();
-  factory GameAssets() => _instance;
-  GameAssets._();
+class MediaBundle {
+  static final MediaBundle _instance = MediaBundle._();
+  factory MediaBundle() => _instance;
+  MediaBundle._();
 
   late ui.Image chicken;
   late ui.Image chickenDead;
@@ -75,25 +75,25 @@ class GameAssets {
     if (loaded) return;
 
     final results = await Future.wait([
-      _load('assets/chicken.webp'),              // 0
-      _load('assets/cheken_rip.webp'),           // 1
-      _load('assets/feathers.webp'),             // 2
-      _load('assets/Cars/Taxi.webp'),            // 3
-      _load('assets/Cars/Police.webp'),          // 4
-      _load('assets/Cars/Van.webp'),             // 5
-      _load('assets/Cars/FireFighter.webp'),     // 6
-      _load('assets/game_name.png'),             // 7
-      _load('assets/hatch.png'),                 // 8
-      _load('assets/hatch_2.png'),               // 9
-      _load('assets/barrier.png'),               // 10
-      _load('assets/tree.webp'),                 // 11
-      _load('assets/bush1.webp'),                // 12
-      _load('assets/bush2.webp'),                // 13
-      _load('assets/fanar.png'),                 // 14
-      _load('assets/Golden.webp'),               // 15
-      _load('assets/Golden-dead.webp'),          // 16
-      _load('assets/Steelwing.webp'),              // 17
-      _load('assets/Steelwing-dead.webp'),         // 18
+      _load('assets/chicken.webp'),
+      _load('assets/cheken_rip.webp'),
+      _load('assets/feathers.webp'),
+      _load('assets/Cars/Taxi.webp'),
+      _load('assets/Cars/Police.webp'),
+      _load('assets/Cars/Van.webp'),
+      _load('assets/Cars/FireFighter.webp'),
+      _load('assets/game_name.png'),
+      _load('assets/hatch.png'),
+      _load('assets/hatch_2.png'),
+      _load('assets/barrier.png'),
+      _load('assets/tree.webp'),
+      _load('assets/bush1.webp'),
+      _load('assets/bush2.webp'),
+      _load('assets/fanar.png'),
+      _load('assets/Golden.webp'),
+      _load('assets/Golden-dead.webp'),
+      _load('assets/Steelwing.webp'),
+      _load('assets/Steelwing-dead.webp'),
     ]);
 
     chicken = results[0];
@@ -119,37 +119,37 @@ class GameAssets {
     loaded = true;
   }
 
-  ui.Image skinAlive(SkinType skin) {
+  ui.Image skinAlive(CharSkinType skin) {
     switch (skin) {
-      case SkinType.classic:
+      case CharSkinType.classic:
         return chicken;
-      case SkinType.golden:
+      case CharSkinType.golden:
         return goldenChicken;
-      case SkinType.steelwing:
+      case CharSkinType.steelwing:
         return steelwingChicken;
     }
   }
 
-  ui.Image skinDead(SkinType skin) {
+  ui.Image skinDead(CharSkinType skin) {
     switch (skin) {
-      case SkinType.classic:
+      case CharSkinType.classic:
         return chickenDead;
-      case SkinType.golden:
+      case CharSkinType.golden:
         return goldenDead;
-      case SkinType.steelwing:
+      case CharSkinType.steelwing:
         return steelwingDead;
     }
   }
 
-  ui.Image imageForVehicle(VehicleType type) {
+  ui.Image imageForVehicle(TrafficKind type) {
     switch (type) {
-      case VehicleType.taxi:
+      case TrafficKind.taxi:
         return taxi;
-      case VehicleType.police:
+      case TrafficKind.police:
         return police;
-      case VehicleType.van:
+      case TrafficKind.van:
         return van;
-      case VehicleType.fireFighter:
+      case TrafficKind.fireFighter:
         return fireFighter;
     }
   }
@@ -162,4 +162,4 @@ class GameAssets {
   }
 }
 
-enum VehicleType { taxi, police, van, fireFighter }
+enum TrafficKind { taxi, police, van, fireFighter }
