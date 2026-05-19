@@ -10,10 +10,7 @@ class AppSettings {
   static String get privacyPolicyUrl => privacyPolicyPageUrl;
   static String get supportUrl => supportPageUrl;
 
-  // iOS App Store numeric ID (без префикса `id`). Замени на реальный из App Store Connect.
-  // Пока приложение не опубликовано/не зарегистрировано — оставляй placeholder,
-  // probabilistic attribution продолжит работать.
-  static const String iosAppStoreId = '6762850008';
+  static const String iosAppStoreId = '6770700971';
 
   static String get analyticsAppId =>
       Platform.isIOS ? iosAppStoreId : bundleId;
