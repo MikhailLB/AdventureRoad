@@ -3,45 +3,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../cfg/remote_paths.dart';
-import '../views/web_page.dart';
-import 'media_bundle.dart';
-import 'road_controller.dart';
-import 'scene_renderer.dart';
+import '../config/game_endpoints.dart';
+import '../screens/info_screen.dart';
+import 'game_assets.dart';
+import 'game_engine.dart';
+import 'game_painter.dart';
 
-class _MockPlayer {
+class _FakePlayer {
   final String name;
   final int score;
   final int distance;
   final Color color;
 
-  const _MockPlayer(this.name, this.score, this.distance, this.color);
+  const _FakePlayer(this.name, this.score, this.distance, this.color);
 }
 
-final List<_MockPlayer> _mockPlayers = [
-  _MockPlayer('SpeedRunner', 847, 210, Colors.redAccent),
-  _MockPlayer('UrbanRacer', 723, 185, Colors.blueAccent),
-  _MockPlayer('NightDrifter', 612, 162, Colors.teal),
-  _MockPlayer('TurboKing', 589, 150, Colors.purple),
-  _MockPlayer('DashMaster', 501, 130, Colors.orange),
-  _MockPlayer('StormRider', 478, 118, Colors.green),
-  _MockPlayer('AsphaltAce', 432, 105, Colors.cyan),
-  _MockPlayer('BlazeRunner', 391, 92, Colors.pink),
-  _MockPlayer('GridLock', 345, 80, Colors.amber),
-  _MockPlayer('PeakShifter', 298, 70, Colors.indigo),
+final List<_FakePlayer> _fakePlayers = [
+  _FakePlayer('ChickenMaster', 847, 210, Colors.redAccent),
+  _FakePlayer('RoadRunner99', 723, 185, Colors.blueAccent),
+  _FakePlayer('EggHunter', 612, 162, Colors.teal),
+  _FakePlayer('CrossyKing', 589, 150, Colors.purple),
+  _FakePlayer('FeatherDash', 501, 130, Colors.orange),
+  _FakePlayer('CluckStorm', 478, 118, Colors.green),
+  _FakePlayer('WingWalker', 432, 105, Colors.cyan),
+  _FakePlayer('PeckPro', 391, 92, Colors.pink),
+  _FakePlayer('HenBlaze', 345, 80, Colors.amber),
+  _FakePlayer('NestBreaker', 298, 70, Colors.indigo),
 ];
 
-class PlayView extends StatefulWidget {
-  const PlayView({super.key});
+class GameScreen extends StatefulWidget {
+  const GameScreen({super.key});
 
   @override
-  State<PlayView> createState() => _PlayViewState();
+  State<GameScreen> createState() => _GameScreenState();
 }
 
-class _PlayViewState extends State<PlayView>
+class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
-  final RoadController _engine = RoadController();
-  final MediaBundle _assets = MediaBundle();
+  final GameEngine _engine = GameEngine();
+  final GameAssets _assets = GameAssets();
   late Ticker _ticker;
   Duration _lastTick = Duration.zero;
   String _playerName = 'You';
@@ -52,8 +52,8 @@ class _PlayViewState extends State<PlayView>
   bool _assetsReady = false;
   String? _loadError;
 
-  CharSkinType _activeSkin = CharSkinType.classic;
-  Set<CharSkinType> _ownedSkins = {CharSkinType.classic};
+  SkinType _activeSkin = SkinType.classic;
+  Set<SkinType> _ownedSkins = {SkinType.classic};
 
   @override
   void initState() {
@@ -70,21 +70,21 @@ class _PlayViewState extends State<PlayView>
     try {
       await _assets.loadAll();
       final prefs = await SharedPreferences.getInstance();
-      _engine.highScore = prefs.getInt('pts_best') ?? 0;
-      _engine.bestDistance = prefs.getInt('dist_top') ?? 0;
-      _totalCoins = prefs.getInt('wallet') ?? 0;
-      _playerName = prefs.getString('usr_name') ?? 'You';
+      _engine.highScore = prefs.getInt('game_high_score') ?? 0;
+      _engine.bestDistance = prefs.getInt('game_best_distance') ?? 0;
+      _totalCoins = prefs.getInt('game_coins') ?? 0;
+      _playerName = prefs.getString('player_name') ?? 'You';
 
-      final skinName = prefs.getString('sel_char') ?? 'classic';
-      _activeSkin = CharSkinType.values.firstWhere((s) => s.name == skinName,
-          orElse: () => CharSkinType.classic);
+      final skinName = prefs.getString('active_skin') ?? 'classic';
+      _activeSkin = SkinType.values.firstWhere((s) => s.name == skinName,
+          orElse: () => SkinType.classic);
 
-      final ownedList = prefs.getStringList('chars_owned') ?? ['classic'];
+      final ownedList = prefs.getStringList('owned_skins') ?? ['classic'];
       _ownedSkins = ownedList
-          .map((n) => CharSkinType.values.firstWhere((s) => s.name == n,
-              orElse: () => CharSkinType.classic))
+          .map((n) => SkinType.values.firstWhere((s) => s.name == n,
+              orElse: () => SkinType.classic))
           .toSet();
-      _ownedSkins.add(CharSkinType.classic);
+      _ownedSkins.add(SkinType.classic);
 
       if (mounted) {
         _assetsReady = true;
@@ -101,13 +101,13 @@ class _PlayViewState extends State<PlayView>
 
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('pts_best', _engine.highScore);
-    await prefs.setInt('dist_top', _engine.bestDistance);
-    await prefs.setInt('wallet', _totalCoins);
-    await prefs.setString('usr_name', _playerName);
-    await prefs.setString('sel_char', _activeSkin.name);
+    await prefs.setInt('game_high_score', _engine.highScore);
+    await prefs.setInt('game_best_distance', _engine.bestDistance);
+    await prefs.setInt('game_coins', _totalCoins);
+    await prefs.setString('player_name', _playerName);
+    await prefs.setString('active_skin', _activeSkin.name);
     await prefs.setStringList(
-        'chars_owned', _ownedSkins.map((s) => s.name).toList());
+        'owned_skins', _ownedSkins.map((s) => s.name).toList());
   }
 
   void _onTick(Duration elapsed) {
@@ -117,12 +117,12 @@ class _PlayViewState extends State<PlayView>
     _lastTick = elapsed;
     _engine.update(dt.clamp(0.0, 0.05));
 
-    if (_engine.state == AppPhase.gameOver && !_coinsSaved) {
+    if (_engine.state == GameState.gameOver && !_coinsSaved) {
       _totalCoins += _engine.coinReward;
       _coinsSaved = true;
       _saveData();
     }
-    if (_engine.state == AppPhase.playing) {
+    if (_engine.state == GameState.playing) {
       _coinsSaved = false;
     }
     setState(() {});
@@ -140,16 +140,16 @@ class _PlayViewState extends State<PlayView>
     super.dispose();
   }
 
-  String _skinAssetPath(CharSkinType skin) {
-    return allCharSkins.firstWhere((s) => s.type == skin).asset;
+  String _skinAssetPath(SkinType skin) {
+    return allSkins.firstWhere((s) => s.type == skin).asset;
   }
 
-  String _skinDeadAssetPath(CharSkinType skin) {
-    return allCharSkins.firstWhere((s) => s.type == skin).deadAsset;
+  String _skinDeadAssetPath(SkinType skin) {
+    return allSkins.firstWhere((s) => s.type == skin).deadAsset;
   }
 
-  void _buySkin(CharSkinType skin) {
-    final info = allCharSkins.firstWhere((s) => s.type == skin);
+  void _buySkin(SkinType skin) {
+    final info = allSkins.firstWhere((s) => s.type == skin);
     if (_ownedSkins.contains(skin)) {
       _activeSkin = skin;
       _saveData();
@@ -164,6 +164,7 @@ class _PlayViewState extends State<PlayView>
       setState(() {});
     }
   }
+
 
   Future<void> _editName() async {
     final controller = TextEditingController(text: _playerName);
@@ -206,11 +207,11 @@ class _PlayViewState extends State<PlayView>
 
   void _handleTap() {
     if (_showLeaderboard || _showShop) return;
-    if (_engine.state == AppPhase.menu) {
+    if (_engine.state == GameState.menu) {
       _engine.startGame();
-    } else if (_engine.state == AppPhase.playing) {
+    } else if (_engine.state == GameState.playing) {
       _engine.moveForward();
-    } else if (_engine.state == AppPhase.paused) {
+    } else if (_engine.state == GameState.paused) {
       _engine.togglePause();
     }
   }
@@ -218,7 +219,7 @@ class _PlayViewState extends State<PlayView>
   Offset? _dragStart;
   void _onPanStart(DragStartDetails d) => _dragStart = d.localPosition;
   void _onPanUpdate(DragUpdateDetails d) {
-    if (_dragStart == null || _engine.state != AppPhase.playing) return;
+    if (_dragStart == null || _engine.state != GameState.playing) return;
     final dx = d.localPosition.dx - _dragStart!.dx;
     final dy = d.localPosition.dy - _dragStart!.dy;
     if (dx.abs() > 28 && dx.abs() > dy.abs()) {
@@ -314,15 +315,15 @@ class _PlayViewState extends State<PlayView>
               children: [
                 CustomPaint(
                   size: Size(constraints.maxWidth, constraints.maxHeight),
-                  painter: SceneRenderer(
+                  painter: GamePainter(
                       engine: _engine,
                       assets: _assets,
                       activeSkin: _activeSkin),
                 ),
-                if (_engine.state == AppPhase.menu) _buildMenu(constraints),
-                if (_engine.state == AppPhase.playing) _buildHUD(),
-                if (_engine.state == AppPhase.paused) _buildPauseOverlay(),
-                if (_engine.state == AppPhase.gameOver) ...[
+                if (_engine.state == GameState.menu) _buildMenu(constraints),
+                if (_engine.state == GameState.playing) _buildHUD(),
+                if (_engine.state == GameState.paused) _buildPauseOverlay(),
+                if (_engine.state == GameState.gameOver) ...[
                   _buildHUD(),
                   _buildGameOver(constraints),
                 ],
@@ -335,6 +336,8 @@ class _PlayViewState extends State<PlayView>
       ),
     );
   }
+
+  // ─── MENU ───
 
   Widget _buildMenu(BoxConstraints c) {
     final bob = sin(_engine.menuTime * 2.5) * 10;
@@ -457,8 +460,8 @@ class _PlayViewState extends State<PlayView>
                   ),
                   child: Image.asset(
                     _skinAssetPath(_activeSkin),
-                    width: _activeSkin == CharSkinType.classic ? 150 : 300,
-                    height: _activeSkin == CharSkinType.classic ? 150 : 300,
+                    width: _activeSkin == SkinType.classic ? 150 : 300,
+                    height: _activeSkin == SkinType.classic ? 150 : 300,
                     fit: BoxFit.contain,
                   ),
                 ),
@@ -491,9 +494,9 @@ class _PlayViewState extends State<PlayView>
                   GestureDetector(
                     onTap: () {
                       Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const WebPage(
+                        builder: (_) => const InfoScreen(
                           title: 'Privacy Policy',
-                          url: policyPageUrl,
+                          url: privacyPolicyPageUrl,
                         ),
                       ));
                     },
@@ -511,9 +514,9 @@ class _PlayViewState extends State<PlayView>
                   GestureDetector(
                     onTap: () {
                       Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const WebPage(
+                        builder: (_) => const InfoScreen(
                           title: 'Support',
-                          url: helpPageUrl,
+                          url: supportPageUrl,
                         ),
                       ));
                     },
@@ -535,6 +538,8 @@ class _PlayViewState extends State<PlayView>
       ),
     );
   }
+
+  // ─── SHOP ───
 
   Widget _buildShopOverlay() {
     return GestureDetector(
@@ -576,9 +581,9 @@ class _PlayViewState extends State<PlayView>
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: allCharSkins.length,
+                  itemCount: allSkins.length,
                   itemBuilder: (ctx, i) {
-                    final skin = allCharSkins[i];
+                    final skin = allSkins[i];
                     final owned = _ownedSkins.contains(skin.type);
                     final active = _activeSkin == skin.type;
                     final canAfford = _totalCoins >= skin.price;
@@ -717,13 +722,15 @@ class _PlayViewState extends State<PlayView>
     );
   }
 
+  // ─── LEADERBOARD ───
+
   Widget _buildLeaderboardOverlay() {
-    final allPlayers = <_BoardEntry>[];
-    for (final f in _mockPlayers) {
+    final allPlayers = <_LeaderEntry>[];
+    for (final f in _fakePlayers) {
       allPlayers
-          .add(_BoardEntry(f.name, f.score, f.distance, f.color, null));
+          .add(_LeaderEntry(f.name, f.score, f.distance, f.color, null));
     }
-    allPlayers.add(_BoardEntry(_playerName, _engine.highScore,
+    allPlayers.add(_LeaderEntry(_playerName, _engine.highScore,
         _engine.bestDistance, Colors.amber, null));
     allPlayers.sort((a, b) => b.distance.compareTo(a.distance));
     final top = allPlayers.take(10).toList();
@@ -813,7 +820,7 @@ class _PlayViewState extends State<PlayView>
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold))),
                         const SizedBox(width: 6),
-                        _boardAvatar(e, 36),
+                        _leaderAvatar(e, 36),
                         const SizedBox(width: 10),
                         Expanded(
                             child: Text(e.name,
@@ -856,7 +863,7 @@ class _PlayViewState extends State<PlayView>
     );
   }
 
-  Widget _boardAvatar(_BoardEntry e, double size) {
+  Widget _leaderAvatar(_LeaderEntry e, double size) {
     if (e.avatarBytes != null) {
       return ClipOval(
           child: Image.memory(e.avatarBytes!,
@@ -872,6 +879,8 @@ class _PlayViewState extends State<PlayView>
               fontWeight: FontWeight.bold)),
     );
   }
+
+  // ─── SHARED WIDGETS ───
 
   Widget _buildPlayButton(double glowPulse) {
     final scale = 1.0 + sin(_engine.menuTime * 3) * 0.04;
@@ -968,6 +977,8 @@ class _PlayViewState extends State<PlayView>
     );
   }
 
+  // ─── HUD ───
+
   Widget _buildHUD() {
     return SafeArea(
       child: Padding(
@@ -1016,7 +1027,7 @@ class _PlayViewState extends State<PlayView>
                         fontSize: 17,
                         fontWeight: FontWeight.bold))),
             const SizedBox(height: 4),
-            if (_engine.state == AppPhase.playing)
+            if (_engine.state == GameState.playing)
               GestureDetector(
                 onTap: () => _engine.togglePause(),
                 child: _hudPill(
@@ -1040,6 +1051,8 @@ class _PlayViewState extends State<PlayView>
       child: child,
     );
   }
+
+  // ─── PAUSE ───
 
   Widget _buildPauseOverlay() {
     return Container(
@@ -1113,6 +1126,8 @@ class _PlayViewState extends State<PlayView>
     );
   }
 
+  // ─── GAME OVER ───
+
   Widget _buildGameOver(BoxConstraints c) {
     final show = _engine.deathTimer > 1.5;
     return AnimatedOpacity(
@@ -1130,8 +1145,8 @@ class _PlayViewState extends State<PlayView>
                     children: [
                       const SizedBox(height: 20),
                       Image.asset(_skinDeadAssetPath(_activeSkin),
-                          width: _activeSkin == CharSkinType.classic ? 100 : 200,
-                          height: _activeSkin == CharSkinType.classic ? 100 : 200),
+                          width: _activeSkin == SkinType.classic ? 100 : 200,
+                          height: _activeSkin == SkinType.classic ? 100 : 200),
                       const SizedBox(height: 10),
                       const Text('GAME OVER',
                           style: TextStyle(
@@ -1335,12 +1350,12 @@ class _PlayViewState extends State<PlayView>
   }
 }
 
-class _BoardEntry {
+class _LeaderEntry {
   final String name;
   final int score;
   final int distance;
   final Color color;
   final Uint8List? avatarBytes;
-  _BoardEntry(
+  _LeaderEntry(
       this.name, this.score, this.distance, this.color, this.avatarBytes);
 }

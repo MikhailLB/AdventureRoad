@@ -20,8 +20,8 @@
 	<string>&lt;none&gt;</string>
 	<key>provisioningProfiles</key>
 	<dict>
-		<key>com.chicktripgsgame.chickentrip2</key>
-		<string>match AppStore com.chicktripgsgame.chickentrip2</string>
+		<key>com.adventix.adventureroad</key>
+		<string>match AppStore com.adventix.adventureroad</string>
 	</dict>
 </dict>
 </plist>
