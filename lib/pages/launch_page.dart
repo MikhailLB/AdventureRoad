@@ -5,6 +5,7 @@ import '../core/media_bundle.dart';
 import '../data/app_state.dart';
 import '../infra/analytics_tracker.dart';
 import '../infra/api_client.dart';
+import '../infra/cold_start_bridge.dart';
 import '../infra/net_checker.dart';
 import '../infra/push_manager.dart';
 import '../infra/data_store.dart';
@@ -91,6 +92,17 @@ class _LaunchPageState extends State<LaunchPage> {
   Future<void> _run() async {
     widget.pushManager.onTokenRefresh = _onPushTokenRefresh;
     await widget.pushManager.init().catchError((_) {});
+
+    // Express lane: if the app was launched by a cold-start push tap,
+    // SceneDelegate has already stored the destination URL. Navigate
+    // directly without going through attribution / API flow.
+    if (Platform.isIOS) {
+      final launchUrl = await ColdStartBridge.consumeLaunchUrl();
+      if (launchUrl != null) {
+        await _navigateToContent(launchUrl);
+        return;
+      }
+    }
 
     _setBar(_BarState.empty);
 

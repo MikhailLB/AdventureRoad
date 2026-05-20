@@ -36,8 +36,21 @@ target 'Runner' do
   end
 end
 
+# Notification Service Extension — needed so iOS renders image attachments
+# from FCM pushes when the Dart isolate isn't running (background / killed).
+# FirebaseMessaging is pulled in so PushMediaHandler can call
+# Messaging.serviceExtension().populateNotificationContent(...).
+target 'NotificationService' do
+  use_frameworks!
+  pod 'Firebase/Messaging'
+end
+
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
+    end
   end
 end

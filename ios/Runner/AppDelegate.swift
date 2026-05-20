@@ -1,6 +1,6 @@
+import FirebaseMessaging
 import Flutter
 import UIKit
-import Firebase
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -8,11 +8,15 @@ import Firebase
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    FirebaseApp.configure()
-    if #available(iOS 10.0, *) {
-      UNUserNotificationCenter.current().delegate = self
-    }
+    // Register Flutter plugins (including firebase_messaging) eagerly so FCM
+    // can install its UNUserNotificationCenterDelegate swizzle before any
+    // notification taps are delivered.
     GeneratedPluginRegistrant.register(with: self)
+
+    // FirebaseAppDelegateProxyEnabled=YES in Info.plist handles FirebaseApp
+    // configuration and APNs token forwarding automatically — no manual
+    // FirebaseApp.configure() call needed.
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }

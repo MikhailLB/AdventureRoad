@@ -10,7 +10,7 @@ class AppConfig {
   static String get privacyPolicyUrl => policyPageUrl;
   static String get supportUrl => helpPageUrl;
 
-  static const String iosAppStoreId = '6762850008';
+  static const String iosAppStoreId = '6770700971';
 
   static String get analyticsAppId =>
       Platform.isIOS ? iosAppStoreId : bundleId;

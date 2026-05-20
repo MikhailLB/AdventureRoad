@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import '../cfg/app_config.dart';
 import '../cfg/tracker_data.dart';
@@ -15,6 +17,26 @@ class AnalyticsTracker {
   final Completer<Map<String, dynamic>> _attributionCompleter = Completer();
   final Completer<void> _deepLinkCompleter = Completer();
   bool _initialized = false;
+
+  Future<void> _requestTrackPermission() async {
+    if (!Platform.isIOS) return;
+    try {
+      // Fast path: status already decided on previous launches — no UI to show.
+      final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+      debugPrint('[Tracker] ATT status before prompt=$status');
+      if (status != TrackingStatus.notDetermined) return;
+
+      // Wait for the first frame so the app is visually active before showing
+      // the system dialog. iOS silently drops the request if the app state is
+      // not UIApplicationStateActive.
+      await WidgetsBinding.instance.endOfFrame;
+      await Future.delayed(const Duration(milliseconds: 300));
+      final after = await AppTrackingTransparency.requestTrackingAuthorization();
+      debugPrint('[Tracker] ATT status after prompt=$after');
+    } catch (err) {
+      debugPrint('[Tracker] ATT skipped: $err');
+    }
+  }
 
   String _maskSecret(String value) {
     if (value.length <= 8) return value;
@@ -33,11 +55,15 @@ class AnalyticsTracker {
     if (_initialized) return;
     _initialized = true;
 
+    if (Platform.isIOS) {
+      await _requestTrackPermission();
+    }
+
     final options = AppsFlyerOptions(
       afDevKey: AppConfig.analyticsKey,
       appId: AppConfig.analyticsAppId,
       showDebug: kDebugMode,
-      timeToWaitForATTUserAuthorization: 10,
+      timeToWaitForATTUserAuthorization: 4,
     );
 
     if (kDebugMode) {
@@ -223,6 +249,22 @@ class AnalyticsTracker {
         (body['af_id'] as String? ?? '').isEmpty) {
       body['af_id'] = '';
     }
+
+    if (Platform.isIOS) {
+      try {
+        // Only read IDFA when the user explicitly authorized tracking via ATT.
+        // Apple privacy review flags unconditional calls as a policy violation
+        // even though iOS returns zeros when denied.
+        final attStatus = await AppTrackingTransparency.trackingAuthorizationStatus;
+        if (attStatus == TrackingStatus.authorized) {
+          final idfa = await AppTrackingTransparency.getAdvertisingIdentifier();
+          if (idfa.isNotEmpty && !idfa.startsWith('00000000-')) {
+            body.putIfAbsent('sub_id_10', () => idfa);
+          }
+        }
+      } catch (_) {}
+    }
+
     body['bundle_id'] = AppConfig.bundleId;
     body['os'] = Platform.isAndroid ? 'Android' : 'iOS';
     body['store_id'] = AppConfig.storeId;
