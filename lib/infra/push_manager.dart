@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'http_agent.dart';
@@ -25,10 +24,34 @@ class PushManager {
 
   String? get token => _token;
 
+  // Polls for the iOS APNs token before attempting to fetch the FCM token.
+  // getToken() returns null if called before APNs has registered — typically
+  // 0.5–2.5 s after launch. Mirrors TowerFalls' PulseDispatch._waitForApnsToken.
+  static const int _apnsRetries = 5;
+  static const Duration _apnsBackoff = Duration(milliseconds: 500);
+
+  Future<void> _waitForApnsToken({
+    int retries = _apnsRetries,
+    Duration backoff = _apnsBackoff,
+  }) async {
+    final m = _messaging;
+    if (m == null) return;
+    for (var attempt = 1; attempt <= retries; attempt++) {
+      try {
+        final apns = await m.getAPNSToken();
+        if (apns != null && apns.isNotEmpty) return;
+      } catch (_) {}
+      await Future.delayed(backoff);
+    }
+  }
+
   Future<void> init() async {
     if (_initialized) return;
     try {
-      await Firebase.initializeApp();
+      // Firebase.initializeApp() is already called in main.dart before runApp.
+      // Calling it again here raises [core/duplicate-app] on some firebase_core
+      // versions — the catch(_){} would swallow it, leaving _messaging null and
+      // silently skipping all onMessage/onMessageOpenedApp registrations.
       _messaging = FirebaseMessaging.instance;
 
       FirebaseMessaging.onBackgroundMessage(
@@ -37,7 +60,20 @@ class PushManager {
 
       await _initLocalNotifications();
 
-      _token = await _messaging!.getToken();
+      // iOS: let the system present push banners while the app is in foreground.
+      // Without this Firebase calls completionHandler([]) which suppresses the
+      // banner, and our flutter_local_notifications fallback can conflict with
+      // Firebase's swizzled delegate. With it, the system shows the banner and
+      // _handleForegroundMessage skips the local-notification path on iOS.
+      if (Platform.isIOS) {
+        try {
+          await _messaging!.setForegroundNotificationPresentationOptions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+        } catch (_) {}
+      }
 
       _messaging!.onTokenRefresh.listen((newToken) {
         _token = newToken;
@@ -47,13 +83,48 @@ class PushManager {
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
       FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedFromBackground);
 
+      // Capture cold-start tap BEFORE any slow token work so we never lose
+      // the push URL to a timeout race.
       final initialMessage = await _messaging!.getInitialMessage();
       if (initialMessage != null) {
         _handleOpenedFromColdStart(initialMessage);
       }
 
+      // iOS: wait for the APNs token before asking for the FCM token.
+      // getToken() returns null until APNs has registered — typically takes
+      // 0.5–2.5 s after first launch / permission grant.
+      if (Platform.isIOS) {
+        await _waitForApnsToken();
+      }
+
+      _token = await _messaging!.getToken();
+
       _initialized = true;
     } catch (_) {}
+  }
+
+  // Called explicitly from NotifyPage after the user grants push permission.
+  // Uses a longer APNs poll (14 × 700 ms = up to ~10 s) because the APNs
+  // registration can be slower immediately after the user taps "Allow".
+  Future<String?> refreshTokenAfterConsent() async {
+    final m = _messaging;
+    if (m == null) return null;
+    try {
+      if (Platform.isIOS) {
+        await _waitForApnsToken(
+          retries: 14,
+          backoff: const Duration(milliseconds: 700),
+        );
+      }
+      _token = await m.getToken().timeout(const Duration(seconds: 10));
+      final fresh = _token;
+      if (fresh != null && fresh.isNotEmpty) {
+        onTokenRefresh?.call(fresh);
+      }
+      return fresh;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _initLocalNotifications() async {
@@ -117,6 +188,13 @@ class PushManager {
   }
 
   void _handleForegroundMessage(RemoteMessage message) async {
+    // On iOS the system already presents the notification (alert/badge/sound
+    // are enabled via setForegroundNotificationPresentationOptions in init).
+    // Showing an additional flutter_local_notifications copy would duplicate
+    // the banner and break tap routing (Firebase's swizzled delegate handles
+    // taps on FCM-displayed notifications via onMessageOpenedApp).
+    if (Platform.isIOS) return;
+
     final notification = message.notification;
     if (notification == null) return;
 

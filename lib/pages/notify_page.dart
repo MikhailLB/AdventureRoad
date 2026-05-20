@@ -83,11 +83,19 @@ class _NotifyPageState extends State<NotifyPage> {
   void _onAccept() async {
     final granted = await widget.pushManager.requestPermission();
     if (!mounted) return;
-    if (!granted) {
+    if (granted) {
+      // Explicitly re-fetch the FCM token after permission is granted.
+      // On iOS, getToken() in pushManager.init() may have returned null because
+      // the APNs token hadn't arrived yet. refreshTokenAfterConsent() polls
+      // APNs (up to ~10 s) and then fetches the FCM token, firing onTokenRefresh
+      // so the backend receives the production token via the LaunchPage callback.
+      await widget.pushManager.refreshTokenAfterConsent();
+    } else {
       final skipUntil = DateTime.now().millisecondsSinceEpoch ~/ 1000 +
           AppConfig.notificationRetryDelaySeconds;
       await widget.store.setNotificationSkipUntil(skipUntil);
     }
+    if (!mounted) return;
     _goToContent();
   }
 
