@@ -349,12 +349,7 @@ class _WebViewPageState extends State<WebViewPage>
         body: Stack(
           fit: StackFit.expand,
           children: [
-            Padding(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).orientation == Orientation.landscape
-                    ? 0
-                    : MediaQuery.of(context).viewPadding.top,
-              ),
+            SafeArea(
               child: WebViewWidget(controller: _controller),
             ),
             if (_isLoading)
