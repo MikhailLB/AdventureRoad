@@ -36,13 +36,15 @@ target 'Runner' do
   end
 end
 
-# Notification Service Extension — needed so iOS renders image attachments
-# from FCM pushes when the Dart isolate isn't running (background / killed).
-# FirebaseMessaging is pulled in so PushMediaHandler can call
-# Messaging.serviceExtension().populateNotificationContent(...).
+# Notification Service Extension target.
+# Firebase/Messaging is intentionally NOT pulled in via CocoaPods here because
+# Flutter's Swift Package Manager integration already adds firebase-ios-sdk as
+# an SPM package to the project. Adding the same module via CocoaPods causes
+# "Redefinition of module 'Firebase'" at compile time.
+# PushMediaHandler uses `#if canImport(FirebaseMessaging)` so it compiles
+# cleanly whether or not FirebaseMessaging is available to the extension.
 target 'NotificationService' do
   use_frameworks!
-  pod 'Firebase/Messaging'
 end
 
 post_install do |installer|
