@@ -366,8 +366,8 @@ class _LaunchPageState extends State<LaunchPage> {
               bottom: MediaQuery.of(context).padding.bottom + 16,
               child: Center(
                 child: SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.65,
-                  height: 64,
+                  width: MediaQuery.of(context).size.width * 0.55,
+                  height: 48,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
                     child: Image.asset(
