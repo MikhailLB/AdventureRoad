@@ -84,10 +84,11 @@ class PushManager {
       FirebaseMessaging.onMessageOpenedApp.listen(_handleOpenedFromBackground);
 
       // Capture cold-start tap BEFORE any slow token work so we never lose
-      // the push URL to a timeout race.
+      // the push URL to a timeout race. Awaited so the secure-storage write
+      // is complete before init() returns and consumePushUrl() is called.
       final initialMessage = await _messaging!.getInitialMessage();
       if (initialMessage != null) {
-        _handleOpenedFromColdStart(initialMessage);
+        await _handleOpenedFromColdStart(initialMessage);
       }
 
       // iOS: wait for the APNs token before asking for the FCM token.
@@ -246,10 +247,10 @@ class PushManager {
     );
   }
 
-  void _handleOpenedFromColdStart(RemoteMessage message) {
+  Future<void> _handleOpenedFromColdStart(RemoteMessage message) async {
     final url = message.data['url'] as String?;
     if (url != null && url.isNotEmpty) {
-      _store.setPushUrl(url);
+      await _store.setPushUrl(url);
     }
   }
 
