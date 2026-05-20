@@ -206,47 +206,58 @@ class _WebViewPageState extends State<WebViewPage>
   }
 
   void _injectKeyboardScrollFix() {
-    _controller.runJavaScript('''
+    _controller.runJavaScript(r'''
 (function() {
-  if (window.__kbScrollFixApplied) return;
-  window.__kbScrollFixApplied = true;
+  if (window.__arKbFix) return;
+  window.__arKbFix = true;
 
-  function isInput(el) {
+  var _timer = null;
+
+  function inputLike(el) {
     return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
   }
 
-  function doScroll() {
+  function nudgeIntoView() {
     var el = document.activeElement;
-    if (!isInput(el)) return;
+    if (!inputLike(el)) return;
+
     var vp = window.visualViewport;
-    if (vp) {
-      var rect = el.getBoundingClientRect();
-      var vpBottom = vp.offsetTop + vp.height;
-      if (rect.bottom > vpBottom - 20 || rect.top < vp.offsetTop) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    } else {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!vp) {
+      el.scrollIntoView({ behavior: 'instant', block: 'center' });
+      return;
+    }
+
+    var rect = el.getBoundingClientRect();
+    var vpTop    = vp.offsetTop;
+    var vpBottom = vpTop + vp.height;
+    var margin   = 20;
+
+    if (rect.bottom > vpBottom - margin) {
+      // input hidden below keyboard — scroll down just enough
+      window.scrollBy({ top: rect.bottom - (vpBottom - margin), behavior: 'instant' });
+    } else if (rect.top < vpTop + margin) {
+      // input hidden above viewport
+      window.scrollBy({ top: rect.top - (vpTop + margin), behavior: 'instant' });
     }
   }
 
+  function schedule() {
+    clearTimeout(_timer);
+    _timer = setTimeout(nudgeIntoView, 180);
+  }
+
+  // Trigger on focus
   document.addEventListener('focusin', function(e) {
-    if (isInput(e.target)) {
-      setTimeout(doScroll, 250);
-      setTimeout(doScroll, 500);
-      setTimeout(doScroll, 800);
-    }
+    if (inputLike(e.target)) schedule();
   });
 
+  // Trigger when keyboard resizes the visual viewport (landscape especially)
   if (window.visualViewport) {
-    var prevH = window.visualViewport.height;
     window.visualViewport.addEventListener('resize', function() {
-      var h = window.visualViewport.height;
-      if (h < prevH) {
-        setTimeout(doScroll, 80);
-        setTimeout(doScroll, 300);
-      }
-      prevH = h;
+      if (inputLike(document.activeElement)) schedule();
+    });
+    window.visualViewport.addEventListener('scroll', function() {
+      if (inputLike(document.activeElement)) schedule();
     });
   }
 })();
@@ -277,6 +288,16 @@ class _WebViewPageState extends State<WebViewPage>
       'padding-left:0!important;' +
       'padding-right:0!important;' +
       'margin-top:0!important;' +
+    '}' +
+    /* Prevent the whole page from jumping/bouncing when keyboard opens.
+       overscroll-behavior:none kills rubber-band. Disabling transitions on
+       layout-affecting properties stops the site's own animations from
+       fighting our scroll correction and causing visible jitter. */
+    'html,body{' +
+      'overscroll-behavior:none!important;' +
+    '}' +
+    '*{' +
+      '-webkit-overflow-scrolling:auto!important;' +
     '}';
 
   function apply() {
