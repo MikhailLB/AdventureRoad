@@ -89,6 +89,7 @@ class _WebViewPageState extends State<WebViewPage>
           _redirectRetryCount = 0;
           _injectSiteAreaKill();
           _injectKeyboardScrollFix();
+          _injectAntiZoom();
         },
         onWebResourceError: (error) {
           if (error.isForMainFrame != true) return;
@@ -203,6 +204,25 @@ class _WebViewPageState extends State<WebViewPage>
       }
     } catch (_) {}
     return [];
+  }
+
+  void _injectAntiZoom() {
+    if (!Platform.isIOS) return;
+    _controller.runJavaScript(r'''
+(function(){
+  if (window.__arAZ) return;
+  window.__arAZ = true;
+  var s = document.createElement('style');
+  s.id = '__arAZ';
+  // iOS auto-zooms when a focused input has font-size < 16px.
+  // Setting font-size to at least 16px on focus prevents the zoom
+  // without disabling user accessibility zoom entirely.
+  s.textContent =
+    'input:not([type=range]):not([type=checkbox]):not([type=radio]),' +
+    'textarea,select{font-size:max(16px,1em)!important;}';
+  (document.head || document.documentElement).appendChild(s);
+})();
+''');
   }
 
   void _injectKeyboardScrollFix() {
