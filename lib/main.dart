@@ -17,5 +17,5 @@ void main() async {
     statusBarIconBrightness: Brightness.light,
   ));
 
-  runApp(const ChromeRushApp());
+  runApp(const AdventureRoadApp());
 }

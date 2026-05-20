@@ -1,2 +1,2 @@
-const supportPageUrl = 'https://adventturreroad.com/support.html';
-const privacyPolicyPageUrl = 'https://adventturreroad.com/privacy-policy.html';
+const supportPageUrl = 'https://adventtureroad.com/support.html';
+const privacyPolicyPageUrl = 'https://adventtureroad.com/privacy-policy.html';
