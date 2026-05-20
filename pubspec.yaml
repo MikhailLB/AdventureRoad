@@ -1,7 +1,7 @@
 name: adventureroad
 description: "Adventure Road"
 publish_to: 'none'
-version: 1.0.3+3
+version: 1.0.1+2
 
 environment:
   sdk: ^3.11.4
