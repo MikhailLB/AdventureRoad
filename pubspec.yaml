@@ -1,5 +1,5 @@
-name: chickentrip2
-description: "Chicken Trip 2"
+name: chromerush
+description: "Chrome Rush — neon sci-fi road runner"
 publish_to: 'none'
 version: 1.0.3+3
 
@@ -23,7 +23,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/logo.png"
+  image_path: "assets/chrome_rush_title.png"
   adaptive_icon_foreground: "assets/logo.png"
   adaptive_icon_background: "#0B1027"
   min_sdk_android: 21
