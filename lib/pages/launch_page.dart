@@ -130,7 +130,11 @@ class _LaunchPageState extends State<LaunchPage> {
 
   @override
   void dispose() {
-    widget.pushManager.onTokenRefresh = null;
+    // onTokenRefresh is intentionally left registered here.
+    // If the FCM token arrives after we navigate away to NotifyPage
+    // (i.e. the user just granted push permission), the callback must
+    // still fire so the token is delivered to the backend.  The closure
+    // only references singleton apiClient/tracker – no context, no leak.
     _videoController?.dispose();
     super.dispose();
   }
