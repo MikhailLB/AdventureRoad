@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../infra/net_checker.dart';
 import '../infra/http_agent.dart';
 import '../infra/push_manager.dart';
@@ -65,7 +66,17 @@ class _WebViewPageState extends State<WebViewPage>
     ]);
     _applySystemUI();
 
-    _controller = WebViewController()
+    late final PlatformWebViewControllerCreationParams params;
+    if (Platform.isIOS) {
+      params = WebKitWebViewControllerCreationParams(
+        allowsInlineMediaPlayback: true,
+        mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+      );
+    } else {
+      params = const PlatformWebViewControllerCreationParams();
+    }
+
+    _controller = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(httpAgent.userAgent)
       ..setBackgroundColor(Colors.black)
