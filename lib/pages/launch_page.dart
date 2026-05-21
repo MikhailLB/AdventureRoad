@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import '../core/media_bundle.dart';
+import '../core/white_part.dart';   // ⚠️ TODO: white part integration point
 import '../data/app_state.dart';
 import '../infra/analytics_tracker.dart';
 import '../infra/api_client.dart';
@@ -9,13 +9,36 @@ import '../infra/cold_start_bridge.dart';
 import '../infra/net_checker.dart';
 import '../infra/push_manager.dart';
 import '../infra/data_store.dart';
-import '../core/play_view.dart';
 import 'no_signal_page.dart';
 import 'notify_page.dart';
 import 'web_view_page.dart' deferred as webview;
 
 enum _BarState { empty, threeQuarter, full }
 
+/// ════════════════════════════════════════════════════════════
+/// LaunchPage — the heart of the gray flow
+/// ════════════════════════════════════════════════════════════
+///
+/// Flow on first launch:
+///   1. Check internet.  No internet → NoSignalPage.
+///   2. Init AppsFlyer, wait for attribution + deep link.
+///   3. POST to backend (config endpoint) with attribution data.
+///   4. Backend returns {ok: true, url: "..."} → navigate to WebView (gray).
+///   5. Backend returns {ok: false} or error → navigate to game (white).
+///   State (online/offline) is persisted so subsequent launches skip step 2-3.
+///
+/// Loading bar states:
+///   empty       → app just started
+///   threeQuarter → attribution / API call in progress
+///   full        → navigation imminent
+///
+/// ⚠️  TODO: The loading screen video assets must exist:
+///   assets/Wait.mp4              (portrait loading video)
+///   assets/loading_horizontal.mp4 (landscape loading video)
+///   assets/bar_empty.webp        (loading bar — empty)
+///   assets/bar_3_4.webp          (loading bar — 75%)
+///   assets/loading_bar_full.webp (loading bar — full)
+/// ════════════════════════════════════════════════════════════
 class LaunchPage extends StatefulWidget {
   final DataStore store;
   final NetChecker netChecker;
@@ -93,9 +116,8 @@ class _LaunchPageState extends State<LaunchPage> {
     widget.pushManager.onTokenRefresh = _onPushTokenRefresh;
     await widget.pushManager.init().catchError((_) {});
 
-    // Express lane: if the app was launched by a cold-start push tap,
-    // SceneDelegate has already stored the destination URL. Navigate
-    // directly without going through attribution / API flow.
+    // iOS cold-start: SceneDelegate stored a push URL before Dart started.
+    // Navigate directly, bypassing attribution / API round-trip.
     if (Platform.isIOS) {
       final launchUrl = await ColdStartBridge.consumeLaunchUrl();
       if (launchUrl != null) {
@@ -131,10 +153,9 @@ class _LaunchPageState extends State<LaunchPage> {
   @override
   void dispose() {
     // onTokenRefresh is intentionally left registered here.
-    // If the FCM token arrives after we navigate away to NotifyPage
-    // (i.e. the user just granted push permission), the callback must
-    // still fire so the token is delivered to the backend.  The closure
-    // only references singleton apiClient/tracker – no context, no leak.
+    // If the FCM token arrives after we navigate to NotifyPage
+    // the callback must still fire. The closure only references
+    // singleton services — no context, no leak.
     _videoController?.dispose();
     super.dispose();
   }
@@ -212,8 +233,6 @@ class _LaunchPageState extends State<LaunchPage> {
       return;
     }
 
-    final savedUrl = await widget.store.getSavedUrl();
-
     await widget.tracker.init();
     await Future.wait([
       widget.tracker
@@ -238,6 +257,7 @@ class _LaunchPageState extends State<LaunchPage> {
       return;
     }
 
+    final savedUrl = await widget.store.getSavedUrl();
     if (savedUrl != null) {
       _navigateToContent(savedUrl);
     } else {
@@ -325,20 +345,26 @@ class _LaunchPageState extends State<LaunchPage> {
     );
   }
 
+  /// ── WHITE PART INTEGRATION POINT ─────────────────────────
+  /// Called when backend returns no URL (organic / flagged user).
+  /// TODO: [WhitePartPlaceholder] → your actual game widget.
   void _navigateToGame() {
     if (_navigated) return;
     _navigated = true;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const PlayView()),
+      MaterialPageRoute(
+        // ⚠️ TODO: Replace WhitePartPlaceholder with your game
+        builder: (_) => const WhitePartPlaceholder(),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final barAsset = switch (_bar) {
-      _BarState.empty => 'assets/bar_empty.webp',
+      _BarState.empty       => 'assets/bar_empty.webp',
       _BarState.threeQuarter => 'assets/bar_3_4.webp',
-      _BarState.full => 'assets/loading_bar_full.webp',
+      _BarState.full        => 'assets/loading_bar_full.webp',
     };
 
     return Scaffold(

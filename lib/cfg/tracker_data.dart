@@ -1,17 +1,45 @@
 import '../helpers/cipher.dart';
 
+/// ════════════════════════════════════════════════════════════
+/// ⚠️  TEMPLATE — encode your AppsFlyer & Firebase credentials
+/// ════════════════════════════════════════════════════════════
+///
+/// HOW TO ENCODE:
+///   Run:  dart run tool/encode_keys.dart
+///   Then paste the printed byte arrays below.
+///
+/// getTrackerKey()   → AppsFlyer Dev Key
+///                     Dashboard: appsflyer.com → App Settings → Dev Key
+///                     Looks like: "HGNdz9XMHJpFih6eHdMDFL"
+///
+/// getProjectRef()   → Firebase Project Number (NOT project ID string)
+///                     google-services.json → "project_number": "123456789"
+///                     OR Firebase console → Project Settings → General
+///
+/// getEventUrl()     → AppsFlyer Get Conversion Data (GCD) endpoint
+///                     Used for organic-install attribution retry.
+///                     Format: https://gcdsdk.appsflyer.com/install_data/v4.0/{appid}?app_id={}&device_id={}
+///                     host part = "https://gcdsdk.appsflyer.com"
+///                     path part = "/install_data/v4.0/"
+
+// TODO: replace v with your encoded AppsFlyer dev key bytes
 String getTrackerKey() {
-  const v = [87, 229, 221, 3, 219, 102, 169, 57, 131, 234, 76, 71, 136, 195, 49, 226, 93, 245, 234, 91, 230, 91];
+  const v = <int>[];             // ⚠️ Placeholder
+  if (v.isEmpty) return '';      // TODO: remove after encoding
   return xd(v);
 }
 
+// TODO: replace v with your encoded Firebase project number bytes
 String getProjectRef() {
-  const v = [34, 161, 188, 91, 149, 1, 194, 91, 218, 190, 41, 20];
+  const v = <int>[];             // ⚠️ Placeholder
+  if (v.isEmpty) return '';      // TODO: remove after encoding
   return xd(v);
 }
 
+// TODO: replace host/path with your encoded GCD endpoint bytes
 String getEventUrl(String appId, String deviceId) {
-  const host = [126, 227, 240, 29, 209, 9, 223, 70, 134, 254, 45, 11, 155, 219, 120, 210, 112, 251, 253, 8, 208, 29, 147, 6, 131];
-  const path = [57, 246, 244, 4, 141, 69, 193, 71, 222, 160, 123, 70, 158];
+  const host = <int>[];          // ⚠️ Placeholder
+  const path = <int>[];          // ⚠️ Placeholder
+  if (host.isEmpty) return '';   // TODO: remove after encoding
   return '${xd(host)}${xd(path)}?app_id=$appId&device_id=$deviceId';
 }

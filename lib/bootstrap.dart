@@ -6,6 +6,16 @@ import 'infra/net_checker.dart';
 import 'infra/push_manager.dart';
 import 'infra/data_store.dart';
 
+/// ════════════════════════════════════════════════════════════
+/// Root widget — wires services into the gray flow
+/// ════════════════════════════════════════════════════════════
+///
+/// ⚠️  TODO:
+///   1. Rename [StreetSurgeApp] to match your app (e.g. MyGameApp).
+///   2. Update [title] to your app name.
+///   3. Adjust [scaffoldBackgroundColor] to match your splash color.
+///   4. Update main.dart to call runApp(YourApp(...)).
+/// ════════════════════════════════════════════════════════════
 class StreetSurgeApp extends StatelessWidget {
   final DataStore store;
   final NetChecker netChecker;
@@ -25,10 +35,12 @@ class StreetSurgeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Adventure Road',
+      // TODO: Set your app title
+      title: 'TODO_APP_NAME',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
+        // TODO: Match your splash/loading screen background color
         scaffoldBackgroundColor: const Color(0xFF1A1A2E),
         colorScheme: const ColorScheme.dark(
           primary: Colors.amber,
