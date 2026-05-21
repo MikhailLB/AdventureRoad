@@ -238,24 +238,20 @@ class _WebViewPageState extends State<WebViewPage>
     if (vp){
       var r = el.getBoundingClientRect();
       if (r.bottom > vp.offsetTop + vp.height - 20 || r.top < vp.offsetTop){
-        el.scrollIntoView({ behavior:'smooth', block:'center' });
+        el.scrollIntoView({ behavior:'auto', block:'nearest' });
       }
     } else {
-      el.scrollIntoView({ behavior:'smooth', block:'center' });
+      el.scrollIntoView({ behavior:'auto', block:'nearest' });
     }
   }
   document.addEventListener('focusin', function(e){
-    if (inputLike(e.target)){
-      setTimeout(focusRoll,250);
-      setTimeout(focusRoll,500);
-      setTimeout(focusRoll,800);
-    }
+    if (inputLike(e.target)){ setTimeout(focusRoll, 350); }
   });
   if (window.visualViewport){
     var prev = window.visualViewport.height;
     window.visualViewport.addEventListener('resize', function(){
       var h = window.visualViewport.height;
-      if (h < prev){ setTimeout(focusRoll,80); setTimeout(focusRoll,300); }
+      if (h < prev){ setTimeout(focusRoll, 120); }
       prev = h;
     });
   }
@@ -289,7 +285,13 @@ class _WebViewPageState extends State<WebViewPage>
       'margin-top:0!important;' +
     '}';
 
+  function kbOpen(){
+    if (!window.visualViewport) return false;
+    return window.visualViewport.height < window.innerHeight * 0.75;
+  }
+
   function apply() {
+    if (kbOpen()) return;
     var head = document.head || document.documentElement;
     if (!head) return;
     var m = document.querySelector('meta[name="viewport"]');
@@ -314,12 +316,12 @@ class _WebViewPageState extends State<WebViewPage>
     var orig = history[fn];
     history[fn] = function() {
       var r = orig.apply(this, arguments);
-      setTimeout(apply, 80);
-      setTimeout(apply, 400);
+      setTimeout(apply, 150);
+      setTimeout(apply, 600);
       return r;
     };
   });
-  window.addEventListener('popstate', function() { setTimeout(apply, 80); });
+  window.addEventListener('popstate', function() { setTimeout(apply, 150); });
   setInterval(apply, 2500);
 })();
 ''');
