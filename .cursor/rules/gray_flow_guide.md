@@ -332,6 +332,107 @@ input, textarea, select { font-size: max(16px, 1em) !important; }
 ```
 This ensures inputs are never smaller than 16px (iOS zoom threshold) without disabling user accessibility zoom.
 
+---
+
+### iOS Keyboard Jitter (inputs in WebView — клавиатура дёргается)
+
+**Symptom:** The keyboard visibly jumps up/down when focusing an input inside WKWebView. Happens intermittently — sometimes after a few page loads, sometimes immediately. Reinstalling the app temporarily "fixes" it (different timing).
+
+**Root cause — two independent triggers, both must be fixed:**
+
+#### Trigger 1: `behavior:'smooth'` in `scrollIntoView` during keyboard animation
+
+iOS keyboard animation takes ~250ms. The `scrollIntoView({ behavior:'smooth' })` call launches its own CSS-scroll animation simultaneously. Two `WKScrollView` animators run concurrently → iOS compositor fights itself → keyboard visibly jerks.
+
+The problem compounds when the scroll is scheduled 3× at 250/500/800ms — each overlapping call restarts the conflict.
+
+```javascript
+// ❌ WRONG — causes jitter
+el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+setTimeout(focusRoll, 250);
+setTimeout(focusRoll, 500);
+setTimeout(focusRoll, 800);
+
+// ✅ CORRECT — instant scroll, single call after keyboard finishes animating
+el.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+setTimeout(focusRoll, 350); // single call, after ~250ms keyboard animation
+```
+
+#### Trigger 2: `setInterval(apply, 2500)` patching `meta[name="viewport"]` while keyboard is visible
+
+The safe-area shim patches `viewport-fit=contain` into the viewport meta tag every 2.5s. Mutating the viewport meta while the keyboard is open forces WKWebView to recompute safe-area insets mid-animation → layout reflow → keyboard jumps.
+
+This is why the bug appears "randomly" — it depends on whether the 2500ms interval fires while the keyboard is visible.
+
+```javascript
+// ❌ WRONG — patches viewport regardless of keyboard state
+setInterval(apply, 2500);
+
+// ✅ CORRECT — skip patch while keyboard is visible
+function kbOpen() {
+    if (!window.visualViewport) return false;
+    return window.visualViewport.height < window.innerHeight * 0.75;
+}
+function apply() {
+    if (kbOpen()) return; // ← guard: never patch during keyboard
+    // ... patch viewport meta and CSS ...
+}
+setInterval(apply, 2500); // guard is inside apply()
+```
+
+**Complete fixed implementation of both injections:**
+
+```javascript
+// _injectKeyboardScroll — fixed version
+function focusRoll() {
+    var el = document.activeElement;
+    if (!inputLike(el)) return;
+    var vp = window.visualViewport;
+    if (vp) {
+        var r = el.getBoundingClientRect();
+        if (r.bottom > vp.offsetTop + vp.height - 20 || r.top < vp.offsetTop) {
+            el.scrollIntoView({ behavior: 'auto', block: 'nearest' }); // ← instant
+        }
+    } else {
+        el.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+    }
+}
+document.addEventListener('focusin', function(e) {
+    if (inputLike(e.target)) {
+        setTimeout(focusRoll, 350); // ← single call after keyboard animation
+    }
+});
+if (window.visualViewport) {
+    var prev = window.visualViewport.height;
+    window.visualViewport.addEventListener('resize', function() {
+        var h = window.visualViewport.height;
+        if (h < prev) { setTimeout(focusRoll, 120); } // ← single call
+        prev = h;
+    });
+}
+```
+
+```javascript
+// _injectSafeAreaShim — fixed version (add kbOpen guard)
+function kbOpen() {
+    if (!window.visualViewport) return false;
+    return window.visualViewport.height < window.innerHeight * 0.75;
+}
+function apply() {
+    if (kbOpen()) return; // ← critical guard
+    // ... rest of apply() unchanged ...
+}
+// SPA route-change delays also slightly increased to avoid firing
+// during keyboard-dismiss transition:
+history[fn] = function() {
+    var r = orig.apply(this, arguments);
+    setTimeout(apply, 150); setTimeout(apply, 600); // was 80/400
+    return r;
+};
+```
+
+**Why "reinstall fixes it":** Fresh install resets page JS state (no service workers, no cached state that alters timing). The bug is deterministic but timing-dependent — on a fresh session the 2500ms interval doesn't happen to fire while a keyboard is animating. After a few sessions/navigations the timing aligns and the bug surfaces.
+
 ### Notification Channel (Android)
 Must create the notification channel BEFORE showing any notifications:
 ```dart
@@ -405,8 +506,17 @@ storeFile=upload-keystore.jks   # → android/app/upload-keystore.jks
 ```
 NOT relative to `android/`. Verify: `android/app/` directory must contain the `.jks` file.
 
-### WebView keyboard covers inputs
-See "Keyboard Handling in WebView" section above. Three-layer fix required.
+### WebView keyboard covers inputs (Android)
+See "Keyboard Handling in WebView" section above. Three-layer fix required:
+`adjustResize` in Manifest + `resizeToAvoidBottomInset: false` in Scaffold + JS `_injectKeyboardScrollFix`.
+
+### iOS keyboard jitters / jumps when tapping inputs in WebView
+**Symptom:** Keyboard visibly jumps up or down when focusing an email/password field. Intermittent — "sometimes after reinstall it goes away."
+**Two independent root causes — both must be fixed:**
+1. `scrollIntoView({ behavior:'smooth' })` conflicts with iOS keyboard animation → use `behavior:'auto'` + single `setTimeout(focusRoll, 350)` instead of 3× at 250/500/800ms.
+2. `setInterval(apply, 2500)` inside `_injectSafeAreaShim` patches `meta[name="viewport"]` while keyboard is visible → add `kbOpen()` guard inside `apply()` that returns early when `visualViewport.height < innerHeight * 0.75`.
+
+See **"iOS Keyboard Jitter"** section above for full code.
 
 ### Loading bar appears before video
 **Cause:** `_videoReady` flag not checked before rendering the bar.
