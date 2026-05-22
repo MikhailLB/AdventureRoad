@@ -2,14 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import '../core/media_bundle.dart';
 import '../data/app_state.dart';
 import '../infra/analytics_tracker.dart';
 import '../infra/api_client.dart';
 import '../infra/net_checker.dart';
 import '../infra/push_manager.dart';
 import '../infra/data_store.dart';
-import '../core/play_view.dart';
+import '../arena/arena_screen.dart';
 import 'no_signal_page.dart';
 import 'notify_page.dart';
 import 'web_view_page.dart' deferred as webview;
@@ -109,7 +108,7 @@ class _LaunchPageState extends State<LaunchPage> {
         unawaited(widget.pushManager.init().catchError((_) {}));
         final restoredOnline = await _tryRestoreOnlineContent();
         if (restoredOnline) return;
-        await MediaBundle().loadAll();
+        
         _setBar(_BarState.full);
         await Future.delayed(const Duration(milliseconds: 600));
         _navigateToGame();
@@ -175,7 +174,7 @@ class _LaunchPageState extends State<LaunchPage> {
       _navigateToContent(response.url!);
     } else {
       await widget.store.setAppMode(AppState.offline);
-      await MediaBundle().loadAll();
+      
       _setBar(_BarState.full);
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
@@ -327,7 +326,7 @@ class _LaunchPageState extends State<LaunchPage> {
     if (_navigated) return;
     _navigated = true;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const PlayView()),
+      MaterialPageRoute(builder: (_) => const ArenaScreen()),
     );
   }
 

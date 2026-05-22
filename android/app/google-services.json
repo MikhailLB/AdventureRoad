@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "510659043318",
-    "project_id": "chickentrip2",
-    "storage_bucket": "chickentrip2.firebasestorage.app"
+    "project_number": "611002298054",
+    "project_id": "dsfdfdf-81133",
+    "storage_bucket": "dsfdfdf-81133.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:510659043318:android:e5344f90d3d9eb3c77b1d7",
+        "mobilesdk_app_id": "1:611002298054:android:750231104052cff25471c7",
         "android_client_info": {
-          "package_name": "com.chicktripgsgame.chickentrip2"
+          "package_name": "com.adventix.adventureroad"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCcPyHND_4pvYD8kirFXt6xhZVV2I0BL_o"
+          "current_key": "AIzaSyB0JZt6jfnqOuZUNPoYo3a_6K_rioaYhAw"
         }
       ],
       "services": {

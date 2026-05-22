@@ -5,11 +5,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-    // NOTE: com.google.gms.google-services intentionally omitted on this branch.
-    // The google-services.json in android/app/ is for com.chicktripgsgame.chickentrip2
-    // and does not match applicationId=com.adventix.adventureroad.
-    // Replace google-services.json with one for com.adventix.adventureroad from
-    // Firebase Console and add the plugin back to enable FCM on Android.
+    id("com.google.gms.google-services")
 }
 
 val keystoreProperties = Properties()

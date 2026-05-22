@@ -491,7 +491,7 @@ class _PlayViewState extends State<PlayView>
                   GestureDetector(
                     onTap: () {
                       Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const WebPage(
+                        builder: (_) => WebPage(
                           title: 'Privacy Policy',
                           url: policyPageUrl,
                         ),
@@ -511,7 +511,7 @@ class _PlayViewState extends State<PlayView>
                   GestureDetector(
                     onTap: () {
                       Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const WebPage(
+                        builder: (_) => WebPage(
                           title: 'Support',
                           url: helpPageUrl,
                         ),
