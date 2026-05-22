@@ -350,10 +350,14 @@ class _WebViewPageState extends State<WebViewPage>
           fit: StackFit.expand,
           children: [
             Padding(
+              // Always respect the safe-area insets so content is never hidden
+              // behind the camera notch, Dynamic Island, or side cutouts —
+              // in both portrait and landscape orientations.
               padding: EdgeInsets.only(
-                top: MediaQuery.of(context).orientation == Orientation.landscape
-                    ? 0
-                    : MediaQuery.of(context).viewPadding.top,
+                top: MediaQuery.of(context).viewPadding.top,
+                left: MediaQuery.of(context).viewPadding.left,
+                right: MediaQuery.of(context).viewPadding.right,
+                bottom: MediaQuery.of(context).viewPadding.bottom,
               ),
               child: WebViewWidget(controller: _controller),
             ),
