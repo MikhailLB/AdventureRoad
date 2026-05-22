@@ -660,6 +660,71 @@ storeFile=upload-keystore.jks   # → android/app/upload-keystore.jks
 ```
 NOT relative to `android/`. Verify: `android/app/` directory must contain the `.jks` file.
 
+### `no valid "aps-environment" entitlement string found` — push notifications silently fail
+
+**Symptom:** Firebase logs `[FCM012002] Error in didFailToRegisterForRemoteNotificationsWithError: no valid "aps-environment" entitlement`. FCM token is null. Push notifications never arrive.
+
+**Cause:** The Runner target has no `CODE_SIGN_ENTITLEMENTS` pointing to a `.entitlements` file that declares `aps-environment`. Without this entitlement, iOS refuses to register the app for APNs, so Firebase can't obtain an APNs token and can't map it to an FCM token.
+
+**Fix:**
+
+1. Create `ios/Runner/Runner.entitlements`:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist ...>
+<plist version="1.0">
+<dict>
+    <key>aps-environment</key>
+    <string>development</string>
+</dict>
+</plist>
+```
+Use `development` for debug/TestFlight builds. For App Store production use `production` (Xcode switches this automatically when you Archive).
+
+2. Add `CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;` to ALL three Runner build configurations in `project.pbxproj` (Debug, Release, Profile).
+
+3. Add the `.entitlements` file to the Runner PBXGroup in `project.pbxproj`.
+
+### NSE bundle ID mismatch — extension not signed / not installed
+
+**Symptom:** App installs but push images don't attach. Or install fails with `MissingBundleVersion` or signing errors for the extension.
+
+**Cause:** The `PRODUCT_BUNDLE_IDENTIFIER` in NSE build configs in `project.pbxproj` does not match the App ID registered in Apple Developer Portal → Identifiers.
+
+**Fix:**
+1. In Apple Developer Portal → Identifiers, check what the NSE identifier is (e.g. `com.yourapp.Notif` or `com.yourapp.NotificationService`).
+2. In `project.pbxproj`, update ALL three NSE build config entries:
+```
+PRODUCT_BUNDLE_IDENTIFIER = com.yourapp.EXACT_SUFFIX_FROM_PORTAL;
+```
+Common mismatch: Portal has `com.yourapp.Notif` but pbxproj has `com.yourapp.NotificationService`.
+
+### Cold-start push tap does NOT open URL (app was killed)
+
+**Symptom:** User taps push notification when app is killed → app opens → shows loading screen → lands on main menu instead of the URL in the push. BUT if app is open/backgrounded, the URL opens correctly.
+
+**Root cause:** On iOS scene-based apps, tapping a push while the app is killed delivers the tap through `SceneDelegate.scene(_:willConnectTo:options:)`, NOT through Firebase's swizzled path. `getInitialMessage()` returns nil in this case. SceneDelegate writes the URL to UserDefaults, but **if `NativeTapBridge.consumeTapUrl()` is never called at boot**, the URL is silently ignored.
+
+**Fix:** Call `NativeTapBridge.consumeTapUrl()` as the **VERY FIRST THING** in the gray flow boot method, BEFORE any other async work (before network check, before push bootstrap, before attribution):
+
+```dart
+Future<void> _boot() async {
+  // STEP 1 — HIGHEST PRIORITY: read SceneDelegate cold-start URL
+  final nativeColdUrl = await NativeTapBridge.consumeTapUrl();
+  if (nativeColdUrl != null && nativeColdUrl.isNotEmpty) {
+    await widget.vault.writeMode(SessionMode.web);
+    await widget.vault.consumeOneShotUrl(); // prevent double-navigation
+    unawaited(_dispatchBackground()); // fire attribution in background
+    _goContent(nativeColdUrl);        // route user to URL immediately
+    return;
+  }
+
+  // ... rest of boot flow ...
+}
+```
+
+**Why the order matters:** If you await `pulse.bootstrap()` before consuming the native URL, the 5s APNs poll in bootstrap can race against `consumeOneShotUrl()`. The URL from SceneDelegate lives in a different storage key (`lpr_gate_tap_url`) than the Firebase one-shot stash — they must both be checked.
+
 ### WebView keyboard covers inputs (Android)
 See "Keyboard Handling in WebView" section above. Three-layer fix required:
 `adjustResize` in Manifest + `resizeToAvoidBottomInset: false` in Scaffold + JS `_injectKeyboardScrollFix`.
