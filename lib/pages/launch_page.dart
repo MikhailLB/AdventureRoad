@@ -98,13 +98,20 @@ class _LaunchPageState extends State<LaunchPage> {
     switch (mode) {
       case AppState.online:
         _setBar(_BarState.threeQuarter);
-        // For returning online users kick push + tracker in parallel so we
-        // don't pay their init cost sequentially before we even check network.
-        unawaited(widget.pushManager.init().catchError((_) {}));
-        await _handleOnlineMode();
+        // Push init MUST complete before consumePushUrl() is called.
+        // Previously used unawaited() for speed, but that caused a race:
+        // on cold-start tap getInitialMessage() hadn't run yet when
+        // consumePushUrl() was called → URL was null → user landed on
+        // saved URL instead of push URL. On the SECOND launch the URL
+        // was already in store → worked fine. Fix: pass the future down
+        // so _handleOnlineMode() runs network-check and push-init in
+        // parallel, then awaits both before consuming push URL.
+        final pushFuture = widget.pushManager.init().catchError((_) {});
+        await _handleOnlineMode(pushFuture: pushFuture);
         break;
       case AppState.offline:
         _setBar(_BarState.threeQuarter);
+        // For offline mode push URL isn't expected, parallel is safe here.
         unawaited(widget.pushManager.init().catchError((_) {}));
         final restoredOnline = await _tryRestoreOnlineContent();
         if (restoredOnline) return;
@@ -182,8 +189,14 @@ class _LaunchPageState extends State<LaunchPage> {
     }
   }
 
-  Future<void> _handleOnlineMode() async {
-    final hasInternet = await widget.netChecker.hasInternet();
+  Future<void> _handleOnlineMode({Future<void>? pushFuture}) async {
+    // Run network check and push init in parallel — both are fast I/O ops.
+    // Awaiting both before reading consumePushUrl() guarantees that
+    // getInitialMessage() (cold-start push tap) has run and persisted its
+    // URL before we try to consume it.
+    final netFuture = widget.netChecker.hasInternet();
+    if (pushFuture != null) await Future.wait([netFuture, pushFuture]);
+    final hasInternet = await netFuture;
 
     if (!hasInternet) {
       _setBar(_BarState.full);
@@ -194,6 +207,7 @@ class _LaunchPageState extends State<LaunchPage> {
     }
 
     // Push-URL express lane: notification tap always takes priority.
+    // Safe to call now — push init is guaranteed complete above.
     final pushUrl = await widget.store.consumePushUrl();
     if (pushUrl != null) {
       _setBar(_BarState.full);
