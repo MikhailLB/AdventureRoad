@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -90,7 +91,6 @@ class _LaunchPageState extends State<LaunchPage> {
 
   Future<void> _run() async {
     widget.pushManager.onTokenRefresh = _onPushTokenRefresh;
-    await widget.pushManager.init().catchError((_) {});
 
     _setBar(_BarState.empty);
 
@@ -99,10 +99,14 @@ class _LaunchPageState extends State<LaunchPage> {
     switch (mode) {
       case AppState.online:
         _setBar(_BarState.threeQuarter);
+        // For returning online users kick push + tracker in parallel so we
+        // don't pay their init cost sequentially before we even check network.
+        unawaited(widget.pushManager.init().catchError((_) {}));
         await _handleOnlineMode();
         break;
       case AppState.offline:
         _setBar(_BarState.threeQuarter);
+        unawaited(widget.pushManager.init().catchError((_) {}));
         final restoredOnline = await _tryRestoreOnlineContent();
         if (restoredOnline) return;
         await MediaBundle().loadAll();
@@ -111,6 +115,9 @@ class _LaunchPageState extends State<LaunchPage> {
         _navigateToGame();
         break;
       case AppState.pending:
+        // First launch: wait for push init before attribution so token is
+        // available for the config payload.
+        await widget.pushManager.init().catchError((_) {});
         await _handleFirstLaunch();
         break;
     }
@@ -187,6 +194,7 @@ class _LaunchPageState extends State<LaunchPage> {
       return;
     }
 
+    // Push-URL express lane: notification tap always takes priority.
     final pushUrl = await widget.store.consumePushUrl();
     if (pushUrl != null) {
       _setBar(_BarState.full);
@@ -196,13 +204,19 @@ class _LaunchPageState extends State<LaunchPage> {
       return;
     }
 
+    // Start tracker init in parallel with the API call — don't await it alone.
+    final trackerFuture = widget.tracker.init();
+
+    // Read cached URL while tracker is warming up (zero extra latency).
     final savedUrl = await widget.store.getSavedUrl();
 
-    await widget.tracker.init();
+    // Wait for attribution but with a tight budget — returning users don't
+    // need a fresh install callback. 5s covers most slow devices; the timeout
+    // resolves with an empty map so the request still goes through.
+    await trackerFuture;
     await Future.wait([
-      widget.tracker
-          .waitForAttribution()
-          .timeout(const Duration(seconds: 10), onTimeout: () => {}),
+      widget.tracker.waitForAttribution(
+          timeout: const Duration(seconds: 5)),
       widget.tracker.waitForDeepLink(),
     ]);
 

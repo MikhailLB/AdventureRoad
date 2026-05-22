@@ -37,7 +37,9 @@ class AnalyticsTracker {
       afDevKey: AppConfig.analyticsKey,
       appId: AppConfig.analyticsAppId,
       showDebug: kDebugMode,
-      timeToWaitForATTUserAuthorization: 10,
+      // 4s is enough for a deliberate tap on the ATT dialog (iOS only).
+      // Previously 10s blocked EVERY launch on Android where ATT is irrelevant.
+      timeToWaitForATTUserAuthorization: 4,
     );
 
     if (kDebugMode) {
@@ -164,9 +166,11 @@ class AnalyticsTracker {
     return null;
   }
 
-  Future<Map<String, dynamic>> waitForAttribution() async {
+  Future<Map<String, dynamic>> waitForAttribution({
+    Duration timeout = const Duration(seconds: 7),
+  }) async {
     return _attributionCompleter.future.timeout(
-      const Duration(seconds: 30),
+      timeout,
       onTimeout: () => <String, dynamic>{},
     );
   }
