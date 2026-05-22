@@ -104,6 +104,160 @@ Add to `.gitignore` if the repo is public.
 
 Also: move `MainActivity.kt` to match the new package path.
 
+### Step 7 — iOS Notification Service Extension (NSE)
+
+The NSE allows iOS to attach rich media images to push notifications when the app is backgrounded or killed. Without it, images only appear when the Dart isolate is alive.
+
+#### 7a — Create NSE Swift files
+
+Create `ios/NotificationService/NotificationService.swift`:
+```swift
+import UserNotifications
+#if canImport(FirebaseMessaging)
+import FirebaseMessaging
+#endif
+
+class NotificationService: UNNotificationServiceExtension {
+  var contentHandler: ((UNNotificationContent) -> Void)?
+  var bestAttemptContent: UNMutableNotificationContent?
+
+  override func didReceive(_ request: UNNotificationRequest,
+    withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
+    self.contentHandler = contentHandler
+    bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent
+    guard let best = bestAttemptContent else { contentHandler(request.content); return }
+    #if canImport(FirebaseMessaging)
+    Messaging.serviceExtension().populateNotificationContent(best, withContentHandler: contentHandler)
+    #else
+    contentHandler(best)
+    #endif
+  }
+
+  override func serviceExtensionTimeWillExpire() {
+    if let h = contentHandler, let b = bestAttemptContent { h(b) }
+  }
+}
+```
+
+Create `ios/NotificationService/Info.plist` — standard app-extension plist with:
+```xml
+<key>NSExtension</key>
+<dict>
+  <key>NSExtensionPointIdentifier</key>
+  <string>com.apple.usernotifications.service</string>
+  <key>NSExtensionPrincipalClass</key>
+  <string>$(PRODUCT_MODULE_NAME).NotificationService</string>
+</dict>
+```
+
+#### 7b — Podfile
+
+Add to `ios/Podfile` (MUST be outside the Runner target block):
+```ruby
+target 'NotificationService' do
+  use_frameworks!
+  pod 'Firebase/Messaging'
+end
+```
+
+#### 7c — Wire NSE into project.pbxproj
+
+This is the most error-prone step. Add the following sections manually (or copy from a working project):
+
+**UUIDs to use** (pick any unique 24-char hex strings for your project):
+```
+NSE_SWIFT_BUILD_FILE   = AA00000100000000000001AA
+NSE_SWIFT_FILE_REF     = AA00000100000000000003AA
+NSE_PLIST_FILE_REF     = AA00000100000000000004AA
+NSE_APPEX_FILE_REF     = AA00000100000000000005AA
+NSE_GROUP              = AA00000100000000000006AA
+NSE_TARGET             = AA00000100000000000007AA
+NSE_SOURCES_PHASE      = AA00000100000000000008AA
+NSE_RESOURCES_PHASE    = AA00000100000000000009AA
+NSE_FRAMEWORKS_PHASE   = AA0000010000000000000AAA
+NSE_DEBUG_CFG          = AA0000010000000000000BAA
+NSE_RELEASE_CFG        = AA0000010000000000000CAA
+NSE_PROFILE_CFG        = AA0000010000000000000DAA
+NSE_CFG_LIST           = AA0000010000000000000EAA
+EMBED_EXT_PHASE        = AA0000010000000000000FAA
+EMBED_EXT_BUILD_FILE   = AA00000100000000000010AA
+NSE_TARGET_DEP         = AA00000100000000000011AA
+NSE_PROXY              = AA00000100000000000012AA
+GOOGLE_PLIST_FILE_REF  = AA00000100000000000013AA
+GOOGLE_PLIST_BUILD     = AA00000100000000000014AA
+```
+
+**Critical rules for pbxproj:**
+
+1. **PBXBuildFile** — add NSE swift source and Embed App Extensions entry
+2. **PBXContainerItemProxy** — proxy for NSE target dependency
+3. **PBXCopyFilesBuildPhase** — `Embed App Extensions` with `dstSubfolderSpec = 13`
+4. **PBXFileReference** — NSE swift, NSE Info.plist, NSE appex product, GoogleService-Info.plist
+5. **PBXGroup** — add NSE group, add NSE product to Products, add GoogleService-Info.plist to Runner group
+6. **PBXNativeTarget (NSE)** — `productType = "com.apple.product-type.app-extension"`
+7. **PBXNativeTarget (Runner)** — add NSE as dependency + `Embed App Extensions` phase
+8. **XCBuildConfiguration (NSE)** — ⚠️ **NO** `baseConfigurationReference` — let CocoaPods set it
+9. **Build phases ORDER in Runner**:
+   ```
+   Run Script → Sources → Frameworks → Resources →
+   Embed Frameworks → Embed App Extensions → Thin Binary
+   ```
+   ⚠️ `Embed App Extensions` MUST come BEFORE `Thin Binary` — otherwise Xcode detects a build cycle
+
+**NSE build settings** — hardcode version, do NOT use `$(FLUTTER_BUILD_NUMBER)`:
+```
+CURRENT_PROJECT_VERSION = 1;          ← hardcoded, NOT $(FLUTTER_BUILD_NUMBER)
+MARKETING_VERSION = 1.0;              ← hardcoded, NOT $(FLUTTER_BUILD_NAME)
+INFOPLIST_FILE = NotificationService/Info.plist;
+PRODUCT_BUNDLE_IDENTIFIER = com.yourapp.NotificationService;
+SKIP_INSTALL = YES;
+```
+
+⚠️ **Why NOT use `$(FLUTTER_BUILD_NUMBER)` in NSE configs:**
+If you set `baseConfigurationReference` to `Debug.xcconfig`/`Release.xcconfig` to inherit Flutter's xcconfig (which defines `FLUTTER_BUILD_NUMBER`), CocoaPods can no longer set its own xcconfig as the base for the NSE target. CocoaPods will print warnings and the NSE won't get Firebase/Messaging linked. Hardcoding `CURRENT_PROJECT_VERSION = 1` avoids the conflict.
+
+**NSE Resources phase** — EMPTY (do NOT add Info.plist):
+```
+AA00000100000000000009AA /* Resources */ = {
+  isa = PBXResourcesBuildPhase;
+  files = ();   ← empty!
+};
+```
+⚠️ Adding Info.plist to Resources causes `Multiple commands produce ... Info.plist` error because `INFOPLIST_FILE` build setting already handles it.
+
+**GoogleService-Info.plist** — must be added to Runner's Copy Bundle Resources:
+```
+97C146EC1CF9000F007C117D /* Resources */ = {
+  files = (
+    ...,
+    AA00000100000000000014AA /* GoogleService-Info.plist in Resources */,
+  );
+};
+```
+Without this, Firebase.initializeApp() silently fails: `Could not locate configuration file: 'GoogleService-Info.plist'`
+
+**All white-part routes must be registered in the root MaterialApp:**
+```dart
+routes: {
+  '/loading':        (_) => const LoadingScreen(),
+  '/menu':           (_) => const MainMenuScreen(),
+  '/level-select':   (_) => const LevelSelectScreen(),
+  '/game':           (_) => const GameScreen(),
+  '/level-complete': (_) => const LevelCompleteScreen(),
+},
+```
+Without this, navigating from the gray flow to the white game crashes with `Could not find route "/menu"`.
+
+#### 7d — After wiring, run pod install
+
+```bash
+cd ios
+pod install    # must produce NO warnings about base configuration
+open Runner.xcworkspace   # ALWAYS open .xcworkspace, never .xcodeproj
+```
+
+If `pod install` still prints CocoaPods xcconfig warnings for the NSE target, it means there's still a `baseConfigurationReference` in the NSE build configs. Remove it.
+
 ### Step 6 — White part (your game)
 
 Replace `WhitePartPlaceholder` in `lib/core/white_part.dart`:
