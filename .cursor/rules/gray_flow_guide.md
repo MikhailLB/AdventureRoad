@@ -886,3 +886,156 @@ git merge ios-gray-template     # brings in gray flow code
 ```
 
 **Important:** When merging, `main.dart` from gray part MUST win (gray `main()` initializes Firebase etc.). The white part's game widget connects in `launch_page.dart → _navigateToGame()`.
+
+---
+
+## WebView Integration Checklist (from real bugs in production)
+
+This section lists every WebView and integration bug discovered during the LavaPeakRun integration. Check all of these when setting up a new project.
+
+### 1. Missing `_injectMediaAutoplay()` — videos don't autoplay in WebView
+
+**Symptom:** Videos on the casino/betting site pause, require a tap to start, or never play at all.
+
+**Cause:** The `_injectMediaAutoplay()` JS injection was not ported to the new project's `ContentBrowser` / `WebViewPage`.
+
+**Fix:** Add this method and call it inside `onPageFinished`:
+```javascript
+(function(){
+  if(window.__lprVideoAuto)return; window.__lprVideoAuto=true;
+  function prep(v){
+    v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline','');
+    v.playsInline=true; v.muted=true; v.defaultMuted=true; v.autoplay=true;
+    var p=v.play&&v.play(); if(p&&p.catch)p.catch(function(){});
+  }
+  function sweep(root){
+    var l=(root||document).querySelectorAll('video');
+    for(var i=0;i<l.length;i++)prep(l[i]);
+  }
+  sweep(document);
+  // Handle dynamically added videos (SPA content)
+  var mo=new MutationObserver(function(recs){
+    for(var i=0;i<recs.length;i++){
+      var nodes=recs[i].addedNodes||[];
+      for(var j=0;j<nodes.length;j++){
+        var n=nodes[j]; if(!n||n.nodeType!==1)continue;
+        if(n.tagName==='VIDEO')prep(n); sweep(n);
+      }
+    }
+  });
+  mo.observe(document.documentElement,{childList:true,subtree:true});
+  // iOS gesture policy sometimes needs a kick on first touch
+  document.addEventListener('touchend',function(){sweep(document);},{passive:true});
+  setInterval(function(){sweep(document);},1500);
+})();
+```
+
+Also ensure `WebKitWebViewControllerCreationParams` is configured with:
+```dart
+mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},  // ← no user action required
+allowsInlineMediaPlayback: true,
+```
+
+### 2. ContentBrowser layout stretched on cold-start push tap — fixes after rotation
+
+**Symptom:** When the app is launched from a killed state by tapping a push notification, the WebView content is stretched / buttons are oversized in portrait. Rotating to landscape and back "fixes" it.
+
+**Cause:** `SystemUiMode.immersiveSticky` (which hides status bar + home indicator) is set in `initState()` but only takes effect on the next frame. The WKWebView starts rendering immediately, calculates viewport dimensions while the system UI elements are still visible, and the site's layout bakes in the wrong height. After rotation, the viewport is fully recalculated.
+
+**Fix:** Dispatch a synthetic `resize` event ~800ms after `onPageFinished` to force a viewport recalculation once immersive mode has settled:
+
+```dart
+// Inside onPageFinished callback:
+Future.delayed(const Duration(milliseconds: 800), () {
+  if (!mounted) return;
+  _wv.runJavaScript(
+    'window.dispatchEvent(new Event("resize"));'
+    'if(window.visualViewport)'
+    '  window.visualViewport.dispatchEvent(new Event("resize"));',
+  );
+  _injectSafeArea(); // re-apply safe area shim after viewport recalc
+});
+```
+
+### 3. White-part routes missing from root MaterialApp — crash on navigation
+
+**Symptom:** After gray flow resolves to game (offline/organic user), the app crashes with:
+```
+Could not find a generator for route RouteSettings("/menu", null)
+```
+
+**Cause:** The root `MaterialApp` in `bootstrap.dart` / `VolcanoGateApp` only registered `/loading` but not the other game routes that `LoadingScreen` navigates to after loading.
+
+**Fix:** Register ALL white-part routes in the root `MaterialApp`:
+```dart
+routes: {
+  '/loading':        (_) => const LoadingScreen(),
+  '/menu':           (_) => const MainMenuScreen(),
+  '/level-select':   (_) => const LevelSelectScreen(),
+  '/game':           (_) => const GameScreen(),
+  '/level-complete': (_) => const LevelCompleteScreen(),
+},
+```
+The exact routes depend on the white-part game structure — look at the original `app.dart` / white `MaterialApp` to find all declared routes.
+
+### 4. Double loading screen (SplashGate + game's LoadingScreen)
+
+**Symptom:** User sees two sequential loading animations — the gray flow's splash video, then the white game's loading video.
+
+**Cause:** `_goGame()` in SplashGate navigated to `LoadingScreen` (the white part's loading screen with its own video), which plays on top of the already-finished gray loading experience.
+
+**Fix:** Navigate directly to the game's main menu screen, skipping LoadingScreen entirely. `GameState` and `AudioService` are already initialised in `main()` before `runApp`, so the LoadingScreen's asset preload step is redundant:
+
+```dart
+void _goGame() {
+  if (_navigated) return;
+  _navigated = true;
+  // Skip LoadingScreen — SplashGate already served as the loading experience.
+  Navigator.of(context).pushReplacement(
+    MaterialPageRoute(builder: (_) => const MainMenuScreen()),
+  );
+}
+```
+
+### 5. `GoogleService-Info.plist` not found — Firebase silently fails to init
+
+**Symptom:**
+```
+[FirebaseCore][I-COR000012] Could not locate configuration file: 'GoogleService-Info.plist'
+Firebase.initializeApp() failed — [core/not-initialized]
+```
+
+**Cause:** The `.plist` file exists on disk at `ios/Runner/GoogleService-Info.plist` but is NOT added to the Xcode project's Copy Bundle Resources build phase. Xcode doesn't copy it into the `.app` bundle.
+
+**Fix:** Add to `project.pbxproj`:
+1. `PBXFileReference` entry for the file
+2. `PBXBuildFile` entry
+3. Add to Runner's `PBXResourcesBuildPhase` `files` array
+4. Add to Runner's `PBXGroup` children
+
+Without all four, the file won't appear in the built bundle.
+
+### 6. NativeTapBridge cold-start URL never consumed — killed-app push tap goes to main menu
+
+**Symptom:** User taps a push notification while the app is killed. App launches, shows loading screen, but lands on the main menu instead of the URL from the push. Works correctly when app is open/backgrounded.
+
+**Cause:** `NativeTapBridge.consumeTapUrl()` (or its equivalent) was implemented but never called in the boot method. SceneDelegate correctly writes the URL to UserDefaults, but the Dart side never reads it.
+
+**Fix:** Call `NativeTapBridge.consumeTapUrl()` as the absolute FIRST action in the boot method, before network check, before push bootstrap, before attribution:
+
+```dart
+Future<void> _boot() async {
+  // STEP 1: check for cold-start push URL from SceneDelegate
+  final nativeColdUrl = await NativeTapBridge.consumeTapUrl();
+  if (nativeColdUrl != null && nativeColdUrl.isNotEmpty) {
+    await widget.vault.writeMode(SessionMode.web);
+    await widget.vault.consumeOneShotUrl(); // prevent double-navigation
+    unawaited(_dispatchBackground());
+    _goContent(nativeColdUrl);
+    return;
+  }
+  // ... rest of boot ...
+}
+```
+
+If `NativeTapBridge.consumeTapUrl()` is called AFTER `pulse.bootstrap()` (which polls APNs for ~2.5s), there is a race condition: the URL might be consumed and stashed by Firebase's `getInitialMessage()` path before `consumeTapUrl()` runs. The SceneDelegate path and Firebase path use different storage keys — check both.
