@@ -21,6 +21,8 @@ class WebViewPage extends StatefulWidget {
   final DataStore store;
   final PushManager pushManager;
   final NetChecker netChecker;
+  /// True when opened directly from a cold-start push tap (app was killed).
+  final bool coldStartPush;
 
   const WebViewPage({
     super.key,
@@ -28,6 +30,7 @@ class WebViewPage extends StatefulWidget {
     required this.store,
     required this.pushManager,
     required this.netChecker,
+    this.coldStartPush = false,
   });
 
   @override
@@ -42,9 +45,17 @@ class _WebViewPageState extends State<WebViewPage>
   bool _showingNoInternet = false;
   String? _lastRedirectUrl;
   int _redirectRetryCount = 0;
+  bool _viewportReady = false;
+  bool _coldReloadDone = false;
 
   void _applySystemUI() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void didChangeMetrics() {
+    // Rebuild viewPadding once immersive mode settles (gray_flow_guide §2)
+    if (mounted) setState(() {});
   }
 
   @override
@@ -52,6 +63,26 @@ class _WebViewPageState extends State<WebViewPage>
     if (state == AppLifecycleState.resumed) {
       _applySystemUI();
     }
+  }
+
+  /// Micro-rotation forces WKWebView to recalculate its native frame.
+  Future<void> _nudgeLayout() async {
+    if (!Platform.isIOS) return;
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft]);
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp, DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  Future<void> _initColdStartSurface() async {
+    _applySystemUI();
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+    await _nudgeLayout();
+    await Future.delayed(const Duration(milliseconds: 250));
   }
 
   @override
@@ -90,6 +121,22 @@ class _WebViewPageState extends State<WebViewPage>
           _injectSiteAreaKill();
           _injectKeyboardScrollFix();
           _injectAntiZoom();
+          // gray_flow_guide §2 — force viewport recalc after immersive settles.
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (!mounted) return;
+            setState(() {}); // re-read viewPadding
+            _controller.runJavaScript(
+              'window.dispatchEvent(new Event("resize"));'
+              'if(window.visualViewport)'
+              '  window.visualViewport.dispatchEvent(new Event("resize"));',
+            );
+            _injectSiteAreaKill();
+            // On cold-start: reload once so site recalculates with correct UA
+            if (widget.coldStartPush && !_coldReloadDone) {
+              _coldReloadDone = true;
+              _controller.reload();
+            }
+          });
         },
         onWebResourceError: (error) {
           if (error.isForMainFrame != true) return;
@@ -134,7 +181,23 @@ class _WebViewPageState extends State<WebViewPage>
       ..enableZoom(false);
 
     _configurePlatform();
-    _controller.loadRequest(Uri.parse(widget.url));
+
+    if (widget.coldStartPush) {
+      // Delay mount + load until immersive mode settles (gray_flow_guide §2)
+      _initColdStartSurface().then((_) {
+        if (!mounted) return;
+        setState(() => _viewportReady = true);
+        _controller.loadRequest(Uri.parse(widget.url));
+      });
+    } else {
+      _viewportReady = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _applySystemUI();
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted) _controller.loadRequest(Uri.parse(widget.url));
+        });
+      });
+    }
 
     widget.pushManager.onNotificationUrl = (url) {
       if (mounted) {
@@ -359,7 +422,17 @@ class _WebViewPageState extends State<WebViewPage>
 
   @override
   Widget build(BuildContext context) {
-    final safe = MediaQuery.of(context).viewPadding;
+    // On cold-start: skip viewPadding until surface is ready (stale insets
+    // cause black letterboxing — gray_flow_guide §2)
+    final safe = widget.coldStartPush
+        ? EdgeInsets.zero
+        : EdgeInsets.only(
+            top: MediaQuery.of(context).viewPadding.top,
+            bottom: MediaQuery.of(context).viewPadding.bottom,
+            left: MediaQuery.of(context).viewPadding.left,
+            right: MediaQuery.of(context).viewPadding.right,
+          );
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -371,22 +444,19 @@ class _WebViewPageState extends State<WebViewPage>
         body: Stack(
           fit: StackFit.expand,
           children: [
-            Padding(
-              padding: EdgeInsets.only(
-                top: safe.top,
-                bottom: safe.bottom,
-                left: safe.left,
-                right: safe.right,
-              ),
-              child: WebViewWidget(controller: _controller),
-            ),
+            if (_viewportReady)
+              Padding(
+                padding: safe,
+                child: WebViewWidget(controller: _controller),
+              )
+            else
+              const ColoredBox(color: Colors.black),
             if (_isLoading)
               Container(
                 color: Colors.black.withValues(alpha: 0.5),
                 child: const Center(
                   child: CircularProgressIndicator(
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Colors.amber),
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
                   ),
                 ),
               ),

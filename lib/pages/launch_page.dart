@@ -99,7 +99,9 @@ class _LaunchPageState extends State<LaunchPage> {
     if (Platform.isIOS) {
       final launchUrl = await ColdStartBridge.consumeLaunchUrl();
       if (launchUrl != null) {
-        await _navigateToContent(launchUrl);
+        // Mark as cold-start push so WebViewPage defers load until immersive
+        // mode settles (gray_flow_guide §2 — layout stretched on cold-start)
+        await _navigateToContent(launchUrl, coldStartPush: true);
         return;
       }
     }
@@ -274,7 +276,7 @@ class _LaunchPageState extends State<LaunchPage> {
     return true;
   }
 
-  Future<void> _navigateToContent(String url) async {
+  Future<void> _navigateToContent(String url, {bool coldStartPush = false}) async {
     if (_navigated) return;
     _navigated = true;
 
@@ -301,6 +303,7 @@ class _LaunchPageState extends State<LaunchPage> {
             store: widget.store,
             pushManager: widget.pushManager,
             netChecker: widget.netChecker,
+            coldStartPush: coldStartPush,
           ),
         ),
       );
