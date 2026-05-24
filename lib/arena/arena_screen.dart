@@ -232,18 +232,34 @@ class _ArenaScreenState extends State<ArenaScreen>
 
   Future<void> _editName() async {
     final controller = TextEditingController(text: _playerName);
-    // Use a custom bottom-sheet-style dialog that avoids overflow when keyboard opens.
-    final result = await showDialog<String>(
+    // showModalBottomSheet automatically slides above the keyboard —
+    // no overflow regardless of soft keyboard height.
+    final result = await showModalBottomSheet<String>(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: _cardBg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+      isScrollControlled: true,
+      backgroundColor: _cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          // viewInsets.bottom = keyboard height — sheet rises with keyboard
+          padding: EdgeInsets.only(
+            left: 24, right: 24, top: 24,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Drag handle
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
               // Avatar picker
               GestureDetector(
                 onTap: () async {
@@ -254,7 +270,7 @@ class _ArenaScreenState extends State<ArenaScreen>
                   children: [
                     CircleAvatar(
                       radius: 36,
-                      backgroundColor: _cardBg,
+                      backgroundColor: const Color(0xFF1A1040),
                       backgroundImage: _avatarBytes != null
                           ? MemoryImage(_avatarBytes!) : null,
                       child: _avatarBytes == null
@@ -295,20 +311,22 @@ class _ArenaScreenState extends State<ArenaScreen>
                       const UnderlineInputBorder(borderSide: BorderSide(color: _cyan)),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
                     child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
                 const SizedBox(width: 8),
-                TextButton(
+                FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: _cyan),
                     onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                    child: const Text('Save', style: TextStyle(color: _cyan))),
+                    child: const Text('Save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))),
               ]),
+              const SizedBox(height: 8),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
     if (result != null && result.isNotEmpty) {
       _playerName = result;
@@ -569,9 +587,11 @@ class _ArenaScreenState extends State<ArenaScreen>
         ),
         const Spacer(flex: 1),
         _buildPlayButton(glowPulse),
-        const SizedBox(height: 10),
-        if (_engine.highScore > 0 || _engine.bestDistance > 0) _buildStatsBadge(),
-        const SizedBox(height: 8),
+        if (_engine.highScore > 0 || _engine.bestDistance > 0) ...[
+          const SizedBox(height: 8),
+          _buildStatsBadge(),
+        ],
+        const Spacer(flex: 1),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           _buildHintChip(Icons.swipe_up, 'TAP'),
           const SizedBox(width: 12),
@@ -579,7 +599,6 @@ class _ArenaScreenState extends State<ArenaScreen>
           const SizedBox(width: 12),
           _buildHintChip(Icons.flash_on, 'COMBO'),
         ]),
-        const SizedBox(height: 2),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           GestureDetector(
             onTap: () => launchUrl(Uri.parse(privacyPolicyPageUrl), mode: LaunchMode.externalApplication),
