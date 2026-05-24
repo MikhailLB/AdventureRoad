@@ -231,102 +231,19 @@ class _ArenaScreenState extends State<ArenaScreen>
   }
 
   Future<void> _editName() async {
-    final controller = TextEditingController(text: _playerName);
-    // showModalBottomSheet with StatefulBuilder so it rebuilds when
-    // the keyboard appears (viewInsets.bottom changes after autofocus fires).
     final result = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: _cardBg,
+      backgroundColor: const Color(0xFF1A1040),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx2, setSheetState) {
-          final keyboardH = MediaQuery.of(ctx2).viewInsets.bottom;
-          return Padding(
-          padding: EdgeInsets.only(
-            left: 24, right: 24, top: 24,
-            bottom: keyboardH + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Avatar picker
-              GestureDetector(
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await _pickAvatar();
-                },
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 36,
-                      backgroundColor: const Color(0xFF1A1040),
-                      backgroundImage: _avatarBytes != null
-                          ? MemoryImage(_avatarBytes!) : null,
-                      child: _avatarBytes == null
-                          ? const Icon(Icons.person, color: _cyan, size: 36)
-                          : null,
-                    ),
-                    Positioned(
-                      right: 0, bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: _cyan, shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.photo_camera, color: Colors.white, size: 14),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text('Tap to change photo',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
-              const SizedBox(height: 20),
-              const Text('Player Name',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                maxLength: 15,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Enter your alias',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                  enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: _cyan.withValues(alpha: 0.5))),
-                  focusedBorder:
-                      const UnderlineInputBorder(borderSide: BorderSide(color: _cyan)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
-                const SizedBox(width: 8),
-                FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: _cyan),
-                    onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                    child: const Text('Save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))),
-              ]),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
+      builder: (_) => _ProfileSheet(
+        initialName: _playerName,
+        avatarBytes: _avatarBytes,
+        onPickAvatar: () async {
+          Navigator.pop(context);
+          await _pickAvatar();
         },
       ),
     );
@@ -1072,6 +989,125 @@ class _ArenaScreenState extends State<ArenaScreen>
         const SizedBox(height: 2),
         Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
       ]),
+    );
+  }
+}
+
+// ── Separate StatefulWidget for profile bottom sheet ─────────────────────────
+// Using a proper StatefulWidget (not StatefulBuilder) ensures that
+// MediaQuery.of(context).viewInsets.bottom is reactive to keyboard on ALL
+// devices including iPad, because Flutter's MediaQuery propagation triggers
+// rebuilds in mounted StatefulWidget trees automatically.
+class _ProfileSheet extends StatefulWidget {
+  final String initialName;
+  final Uint8List? avatarBytes;
+  final VoidCallback onPickAvatar;
+
+  const _ProfileSheet({
+    required this.initialName,
+    required this.avatarBytes,
+    required this.onPickAvatar,
+  });
+
+  @override
+  State<_ProfileSheet> createState() => _ProfileSheetState();
+}
+
+class _ProfileSheetState extends State<_ProfileSheet> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // MediaQuery here IS reactive — when keyboard appears, Flutter rebuilds
+    // this widget with the correct viewInsets.bottom on all devices.
+    final keyboardH = MediaQuery.of(context).viewInsets.bottom;
+    const cyan = Color(0xFF00E5FF);
+    const cardBg = Color(0xFF1A1040);
+
+    return Padding(
+      padding: EdgeInsets.only(left: 24, right: 24, top: 16, bottom: keyboardH + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: widget.onPickAvatar,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: cardBg,
+                  backgroundImage: widget.avatarBytes != null
+                      ? MemoryImage(widget.avatarBytes!) : null,
+                  child: widget.avatarBytes == null
+                      ? const Icon(Icons.person, color: cyan, size: 36) : null,
+                ),
+                Positioned(
+                  right: 0, bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(color: cyan, shape: BoxShape.circle),
+                    child: const Icon(Icons.photo_camera, color: Colors.white, size: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text('Tap to change photo',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
+          const SizedBox(height: 20),
+          const Text('Player Name',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _ctrl,
+            maxLength: 15,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Enter your alias',
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+              enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: cyan.withValues(alpha: 0.5))),
+              focusedBorder:
+                  const UnderlineInputBorder(borderSide: BorderSide(color: cyan)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+            const SizedBox(width: 8),
+            FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: cyan),
+                onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+                child: const Text('Save',
+                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))),
+          ]),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }
