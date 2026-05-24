@@ -325,18 +325,41 @@ class _ArenaScreenState extends State<ArenaScreen>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(children: [
-            _buildAvatar(size: 48),
+            GestureDetector(
+              onTap: _editName,
+              behavior: HitTestBehavior.opaque,
+              child: Stack(
+                children: [
+                  _buildAvatar(size: 48),
+                  Positioned(
+                    right: 0, bottom: 0,
+                    child: Container(
+                      width: 16, height: 16,
+                      decoration: BoxDecoration(
+                        color: _cyan, shape: BoxShape.circle,
+                        border: Border.all(color: _cardBg, width: 1.5),
+                      ),
+                      child: const Icon(Icons.edit, color: Colors.white, size: 9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(width: 10),
             GestureDetector(
               onTap: _editName,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_playerName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                Row(children: [
-                  const Icon(Icons.toll, color: _magenta, size: 14),
-                  const SizedBox(width: 4),
-                  Text('$_totalCoins', style: const TextStyle(color: _magenta, fontSize: 13)),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(_playerName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  Row(children: [
+                    const Icon(Icons.toll, color: _magenta, size: 14),
+                    const SizedBox(width: 4),
+                    Text('$_totalCoins', style: const TextStyle(color: _magenta, fontSize: 13)),
+                  ]),
                 ]),
-              ]),
+              ),
             ),
             const Spacer(),
             GestureDetector(
@@ -414,12 +437,19 @@ class _ArenaScreenState extends State<ArenaScreen>
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             GestureDetector(
               onTap: () => launchUrl(Uri.parse(privacyPolicyPageUrl), mode: LaunchMode.externalApplication),
-              child: Text('Privacy Policy', style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.2))),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Text('Privacy Policy', style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.2))),
+              ),
             ),
-            const SizedBox(width: 16),
             GestureDetector(
               onTap: () => launchUrl(Uri.parse(supportPageUrl), mode: LaunchMode.externalApplication),
-              child: Text('Support', style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.2))),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Text('Support', style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.2))),
+              ),
             ),
           ]),
         ),
