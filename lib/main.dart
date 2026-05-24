@@ -33,10 +33,13 @@ void main() async {
     debugPrint('[FR.BOOT] AppCheck skipped: $err');
   }
 
-  // Portrait-only — game layout breaks in landscape
+  // Allow all orientations by default — gray flow screens (splash, notify,
+  // WebView) support landscape. ArenaScreen locks portrait in its own initState.
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
