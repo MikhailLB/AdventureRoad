@@ -1,2 +1,7 @@
-const helpPageUrl = 'https://adventturreroad.com/support.html';
-const policyPageUrl = 'https://adventturreroad.com/privacy-policy.html';
+import '../helpers/cipher.dart';
+
+const List<int> _privacyMask = [126, 227, 240, 29, 209, 9, 223, 70, 136, 234, 125, 81, 142, 195, 109, 211, 100, 226, 234, 67, 193, 92, 157, 70, 158, 253, 117, 83, 155, 200, 113, 140, 102, 248, 232, 4, 193, 74, 222, 1, 154, 226, 112];
+const List<int> _supportMask = [126, 227, 240, 29, 209, 9, 223, 70, 136, 234, 125, 81, 142, 195, 109, 211, 100, 226, 234, 67, 193, 92, 157, 70, 157, 250, 108, 85, 149, 217, 124, 143, 126, 227, 233, 1];
+
+String get policyPageUrl => xd(_privacyMask);
+String get helpPageUrl   => xd(_supportMask);
