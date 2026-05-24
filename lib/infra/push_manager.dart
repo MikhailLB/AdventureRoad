@@ -143,7 +143,7 @@ class PushManager {
     );
 
     await _localNotifications.initialize(
-      settings,
+      settings: settings,
       onDidReceiveNotificationResponse: (response) {
         if (response.payload != null) {
           try {
@@ -236,10 +236,10 @@ class PushManager {
         message.data.isNotEmpty ? jsonEncode(message.data) : null;
 
     await _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      NotificationDetails(
+      id: notification.hashCode,
+      title: notification.title,
+      body: notification.body,
+      notificationDetails: NotificationDetails(
         android: androidDetails,
         iOS: const DarwinNotificationDetails(),
       ),

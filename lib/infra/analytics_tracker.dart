@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:appsflyer_sdk/appsflyer_sdk.dart';
 import '../cfg/app_config.dart';
-import '../cfg/tracker_data.dart';
+import '../cfg/network_cfg.dart';
 import 'http_agent.dart';
 
 class AnalyticsTracker {
