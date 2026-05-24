@@ -232,8 +232,8 @@ class _ArenaScreenState extends State<ArenaScreen>
 
   Future<void> _editName() async {
     final controller = TextEditingController(text: _playerName);
-    // showModalBottomSheet automatically slides above the keyboard —
-    // no overflow regardless of soft keyboard height.
+    // showModalBottomSheet with StatefulBuilder so it rebuilds when
+    // the keyboard appears (viewInsets.bottom changes after autofocus fires).
     final result = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -241,12 +241,13 @@ class _ArenaScreenState extends State<ArenaScreen>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) {
-        return Padding(
-          // viewInsets.bottom = keyboard height — sheet rises with keyboard
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setSheetState) {
+          final keyboardH = MediaQuery.of(ctx2).viewInsets.bottom;
+          return Padding(
           padding: EdgeInsets.only(
             left: 24, right: 24, top: 24,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            bottom: keyboardH + 24,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -326,7 +327,8 @@ class _ArenaScreenState extends State<ArenaScreen>
             ],
           ),
         );
-      },
+        },
+      ),
     );
     if (result != null && result.isNotEmpty) {
       _playerName = result;
