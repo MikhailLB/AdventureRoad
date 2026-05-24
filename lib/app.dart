@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'arena/arena_screen.dart';
 
-class ChromeRushApp extends StatelessWidget {
-  const ChromeRushApp({super.key});
+class FeatherRunApp extends StatelessWidget {
+  const FeatherRunApp({super.key});
 
   @override
   Widget build(BuildContext context) {
