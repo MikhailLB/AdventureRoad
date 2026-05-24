@@ -33,6 +33,10 @@
 		<key>NSAllowsArbitraryLoadsInWebContent</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Feather Run uses your photo library so you can set a custom profile picture.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Feather Run uses your camera so you can take a profile photo.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

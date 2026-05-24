@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
@@ -64,6 +66,9 @@ class _ArenaScreenState extends State<ArenaScreen>
   VideoPlayerController? _splashCtrl;
   bool _splashVideoReady = false;
 
+  // Player avatar
+  Uint8List? _avatarBytes;
+
   HeroVariant _activeHero = HeroVariant.classic;
   Set<HeroVariant> _ownedHeroes = {HeroVariant.classic};
 
@@ -108,6 +113,12 @@ class _ArenaScreenState extends State<ArenaScreen>
       _engine.bestDistance = prefs.getInt('arena_best_distance') ?? 0;
       _totalCoins          = prefs.getInt('arena_coins') ?? 0;
       _playerName          = prefs.getString('arena_player_name') ?? 'You';
+      final avatarB64 = prefs.getString('arena_avatar');
+      if (avatarB64 != null && avatarB64.isNotEmpty) {
+        try {
+          _avatarBytes = base64Decode(avatarB64);
+        } catch (_) {}
+      }
 
       final heroName = prefs.getString('arena_active_hero') ?? 'classic';
       _activeHero = HeroVariant.values.firstWhere(
@@ -141,6 +152,9 @@ class _ArenaScreenState extends State<ArenaScreen>
     await prefs.setInt('arena_best_distance', _engine.bestDistance);
     await prefs.setInt('arena_coins',         _totalCoins);
     await prefs.setString('arena_player_name', _playerName);
+    if (_avatarBytes != null) {
+      await prefs.setString('arena_avatar', base64Encode(_avatarBytes!));
+    }
     await prefs.setString('arena_active_hero', _activeHero.name);
     await prefs.setStringList(
         'arena_owned_heroes', _ownedHeroes.map((h) => h.name).toList());
@@ -199,34 +213,101 @@ class _ArenaScreenState extends State<ArenaScreen>
     }
   }
 
+  Future<void> _pickAvatar() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 256,
+        maxHeight: 256,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      _avatarBytes = bytes;
+      _saveData();
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
+
   Future<void> _editName() async {
     final controller = TextEditingController(text: _playerName);
+    // Use a custom bottom-sheet-style dialog that avoids overflow when keyboard opens.
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => Dialog(
         backgroundColor: _cardBg,
-        title: const Text('Player Name', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          maxLength: 15,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: 'Enter your alias',
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-            enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: _cyan.withValues(alpha: 0.5))),
-            focusedBorder:
-                const UnderlineInputBorder(borderSide: BorderSide(color: _cyan)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Avatar picker
+              GestureDetector(
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _pickAvatar();
+                },
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 36,
+                      backgroundColor: _cardBg,
+                      backgroundImage: _avatarBytes != null
+                          ? MemoryImage(_avatarBytes!) : null,
+                      child: _avatarBytes == null
+                          ? const Icon(Icons.person, color: _cyan, size: 36)
+                          : null,
+                    ),
+                    Positioned(
+                      right: 0, bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: _cyan, shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.photo_camera, color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text('Tap to change photo',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
+              const SizedBox(height: 20),
+              const Text('Player Name',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLength: 15,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Enter your alias',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                  enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: _cyan.withValues(alpha: 0.5))),
+                  focusedBorder:
+                      const UnderlineInputBorder(borderSide: BorderSide(color: _cyan)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+                const SizedBox(width: 8),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+                    child: const Text('Save', style: TextStyle(color: _cyan))),
+              ]),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-              child: const Text('Save', style: TextStyle(color: _cyan))),
-        ],
       ),
     );
     if (result != null && result.isNotEmpty) {
@@ -270,8 +351,13 @@ class _ArenaScreenState extends State<ArenaScreen>
         border: Border.all(color: _cyan, width: 2),
         color: _cardBg,
         boxShadow: [BoxShadow(color: _cyan.withValues(alpha: 0.3), blurRadius: 8)],
+        image: _avatarBytes != null
+            ? DecorationImage(image: MemoryImage(_avatarBytes!), fit: BoxFit.cover)
+            : null,
       ),
-      child: Icon(Icons.person, color: _cyan, size: size * 0.55),
+      child: _avatarBytes == null
+          ? Icon(Icons.person, color: _cyan, size: size * 0.55)
+          : null,
     );
   }
 
