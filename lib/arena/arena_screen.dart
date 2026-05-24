@@ -543,9 +543,9 @@ class _ArenaScreenState extends State<ArenaScreen>
             ),
           ]),
         ),
-        const Spacer(flex: 2),
-        Image.asset('assets/title_card.webp', width: c.maxWidth * 0.85, fit: BoxFit.contain),
-        const SizedBox(height: 16),
+        const Spacer(flex: 1),
+        Image.asset('assets/title_card.webp', width: c.maxWidth * 0.80, fit: BoxFit.contain),
+        const SizedBox(height: 8),
         Transform.translate(
           offset: Offset(0, bob),
           child: Transform.rotate(
@@ -569,9 +569,9 @@ class _ArenaScreenState extends State<ArenaScreen>
         ),
         const Spacer(flex: 1),
         _buildPlayButton(glowPulse),
-        const SizedBox(height: 20),
+        const SizedBox(height: 10),
         if (_engine.highScore > 0 || _engine.bestDistance > 0) _buildStatsBadge(),
-        const Spacer(flex: 2),
+        const SizedBox(height: 8),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           _buildHintChip(Icons.swipe_up, 'TAP'),
           const SizedBox(width: 12),
@@ -579,7 +579,7 @@ class _ArenaScreenState extends State<ArenaScreen>
           const SizedBox(width: 12),
           _buildHintChip(Icons.flash_on, 'COMBO'),
         ]),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           GestureDetector(
             onTap: () => launchUrl(Uri.parse(privacyPolicyPageUrl), mode: LaunchMode.externalApplication),
