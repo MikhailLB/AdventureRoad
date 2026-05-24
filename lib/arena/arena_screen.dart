@@ -495,24 +495,23 @@ class _ArenaScreenState extends State<ArenaScreen>
         ]),
         const SizedBox(height: 4),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            GestureDetector(
-              onTap: () => launchUrl(Uri.parse(privacyPolicyPageUrl), mode: LaunchMode.externalApplication),
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Text('Privacy Policy', style: TextStyle(inherit: false, color: Colors.white.withValues(alpha: 0.55), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.3))),
-              ),
+          GestureDetector(
+            onTap: () => launchUrl(Uri.parse(privacyPolicyPageUrl), mode: LaunchMode.externalApplication),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Text('Privacy Policy', style: TextStyle(inherit: false, color: Colors.white.withValues(alpha: 0.55), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.3))),
             ),
-            GestureDetector(
-              onTap: () => launchUrl(Uri.parse(supportPageUrl), mode: LaunchMode.externalApplication),
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Text('Support', style: TextStyle(inherit: false, color: Colors.white.withValues(alpha: 0.55), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.3))),
-              ),
+          ),
+          GestureDetector(
+            onTap: () => launchUrl(Uri.parse(supportPageUrl), mode: LaunchMode.externalApplication),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Text('Support', style: TextStyle(inherit: false, color: Colors.white.withValues(alpha: 0.55), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.3))),
             ),
-          ]),
-        ),
+          ),
+        ]),
       ])),
     );
   }
