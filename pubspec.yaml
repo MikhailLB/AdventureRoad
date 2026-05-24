@@ -1,7 +1,7 @@
 name: featherrun
 description: "Feather Run"
 publish_to: 'none'
-version: 1.0.4+6
+version: 1.0.4+7
 
 environment:
   sdk: ^3.11.4
@@ -49,6 +49,13 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+
+  # Disable Swift Package Manager — Firebase is managed via CocoaPods.
+  # Without this flag Flutter tries to add Firebase via SPM too, causing
+  # "Redefinition of module 'Firebase'" build error.
+  config:
+    enable-swift-package-manager: false
+
   assets:
     - assets/
     - assets/vehicles/
