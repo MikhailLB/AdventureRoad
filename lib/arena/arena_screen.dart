@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 import '../config/game_endpoints.dart';
 import 'scene_assets.dart';
 import 'arena_engine.dart';
@@ -59,18 +60,43 @@ class _ArenaScreenState extends State<ArenaScreen>
   bool _assetsReady = false;
   String? _loadError;
 
+  // Splash video
+  VideoPlayerController? _splashCtrl;
+  bool _splashVideoReady = false;
+
   HeroVariant _activeHero = HeroVariant.classic;
   Set<HeroVariant> _ownedHeroes = {HeroVariant.classic};
 
   @override
   void initState() {
     super.initState();
+    // Lock portrait only — game breaks in landscape and on iPad landscape
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
     _ticker = createTicker(_onTick);
+    _initSplash();
     _loadData();
+  }
+
+  Future<void> _initSplash() async {
+    try {
+      final isLandscape = MediaQuery.of(context).size.width >
+          MediaQuery.of(context).size.height;
+      final asset = isLandscape
+          ? 'assets/splash_h.mp4'
+          : 'assets/splash_v.mp4';
+      final ctrl = VideoPlayerController.asset(asset);
+      await ctrl.initialize();
+      ctrl.setLooping(true);
+      ctrl.setVolume(0);
+      ctrl.play();
+      if (!mounted) { ctrl.dispose(); return; }
+      setState(() { _splashCtrl = ctrl; _splashVideoReady = true; });
+    } catch (_) {
+      // Fall back to spinner if video fails
+    }
   }
 
   Future<void> _loadData() async {
@@ -140,11 +166,11 @@ class _ArenaScreenState extends State<ArenaScreen>
   @override
   void dispose() {
     _ticker.dispose();
+    _splashCtrl?.dispose();
+    // Keep portrait-only on dispose — don't re-enable landscape
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
     ]);
     super.dispose();
   }
@@ -253,9 +279,9 @@ class _ArenaScreenState extends State<ArenaScreen>
     if (!_assetsReady) {
       return Scaffold(
         backgroundColor: _darkBg,
-        body: Center(
-          child: _loadError != null
-              ? Padding(
+        body: _loadError != null
+            ? Center(
+                child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
@@ -266,16 +292,53 @@ class _ArenaScreenState extends State<ArenaScreen>
                     Text(_loadError!, textAlign: TextAlign.center,
                         style: const TextStyle(color: Colors.white70, fontSize: 12)),
                   ]),
-                )
-              : Column(mainAxisSize: MainAxisSize.min, children: [
-                  Image.asset('assets/logo.png', width: 120, height: 120),
-                  const SizedBox(height: 20),
-                  const CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(_cyan)),
-                  const SizedBox(height: 12),
-                  const Text('Loading...', style: TextStyle(color: Colors.white70, fontSize: 16)),
-                ]),
-        ),
+                ),
+              )
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Splash video background
+                  if (_splashVideoReady && _splashCtrl != null)
+                    SizedBox.expand(
+                      child: FittedBox(
+                        fit: BoxFit.cover,
+                        child: SizedBox(
+                          width: _splashCtrl!.value.size.width,
+                          height: _splashCtrl!.value.size.height,
+                          child: VideoPlayer(_splashCtrl!),
+                        ),
+                      ),
+                    )
+                  else
+                    const ColoredBox(color: _darkBg),
+                  // Loading bar at bottom
+                  Positioned(
+                    left: 0, right: 0, bottom: 48,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 180,
+                          height: 6,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              backgroundColor: Colors.white.withValues(alpha: 0.15),
+                              valueColor: const AlwaysStoppedAnimation<Color>(_cyan),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text('Loading...', style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          fontSize: 12,
+                          letterSpacing: 1.5,
+                        )),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
       );
     }
 

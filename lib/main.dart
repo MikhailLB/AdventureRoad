@@ -5,11 +5,10 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Game is portrait-only — landscape breaks the grid layout on all devices
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
   ]);
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

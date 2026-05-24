@@ -454,7 +454,8 @@ class ArenaPainter extends CustomPainter {
   void _drawHero(Canvas canvas) {
     final isDead = engine.state == ArenaState.gameOver;
     final heroScale = activeHero == HeroVariant.classic ? 1.0 : 2.0;
-    final heroSize = engine.columnWidth * 0.85 * heroScale;
+    // Cap hero size so it doesn't become gigantic on iPad/large screens
+    final heroSize = (engine.columnWidth * 0.85 * heroScale).clamp(0.0, 120.0);
     final half = heroSize / 2;
 
     canvas.save();
