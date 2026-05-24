@@ -46,8 +46,8 @@ class _NotifyPageState extends State<NotifyPage> {
 
   Future<void> _initVideo(Orientation orientation) async {
     final asset = orientation == Orientation.landscape
-        ? 'assets/nf_screen_horizontal.mp4'
-        : 'assets/nf_screen.mp4';
+        ? 'assets/notif_h.mp4'
+        : 'assets/notif_v.mp4';
 
     final oldController = _controller;
     final newController = VideoPlayerController.asset(asset);
@@ -239,15 +239,15 @@ class _YesButtonState extends State<_YesButton>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: _pressed
-                    ? [const Color(0xFFE6A800), const Color(0xFFCC8800)]
-                    : [const Color(0xFFFFCC00), const Color(0xFFFF9900)],
+                    ? [const Color(0xFF0093CC), const Color(0xFF004EA8)]
+                    : [const Color(0xFF00C6FF), const Color(0xFF0072FF)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(50),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFF9900)
+                  color: const Color(0xFF0072FF)
                       .withValues(alpha: _pressed ? 0.2 : _glowAnim.value),
                   blurRadius: _pressed ? 8 : 14 + _glowAnim.value * 18,
                   spreadRadius: _pressed ? 0 : _glowAnim.value * 4,
@@ -261,15 +261,15 @@ class _YesButtonState extends State<_YesButton>
               ],
             ),
             child: Center(
-              child: Text(
-                'Accept',
-                style: TextStyle(
-                  color: const Color(0xFF1A0A00),
-                  fontSize: widget.compact ? 16 : 20,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                ),
-              ),
+              child:                   Text(
+                    'Allow',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: widget.compact ? 16 : 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
             ),
           ),
         ),

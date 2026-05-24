@@ -61,8 +61,8 @@ class _LaunchPageState extends State<LaunchPage> {
 
   Future<void> _switchVideo(Orientation orientation) async {
     final asset = orientation == Orientation.landscape
-        ? 'assets/loading_horizontal.mp4'
-        : 'assets/Wait.mp4';
+        ? 'assets/splash_h.mp4'
+        : 'assets/splash_v.mp4';
 
     final oldController = _videoController;
     final newController = VideoPlayerController.asset(asset);
@@ -336,9 +336,9 @@ class _LaunchPageState extends State<LaunchPage> {
   @override
   Widget build(BuildContext context) {
     final barAsset = switch (_bar) {
-      _BarState.empty => 'assets/bar_empty.webp',
-      _BarState.threeQuarter => 'assets/bar_3_4.webp',
-      _BarState.full => 'assets/loading_bar_full.webp',
+      _BarState.empty => 'assets/load_half.webp',
+      _BarState.threeQuarter => 'assets/load_half.webp',
+      _BarState.full => 'assets/load_full.webp',
     };
 
     return Scaffold(
