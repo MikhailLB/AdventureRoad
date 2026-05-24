@@ -22,23 +22,23 @@ class HeroInfo {
 const List<HeroInfo> allHeroes = [
   HeroInfo(
     type: HeroVariant.classic,
-    name: 'Droid',
-    asset: 'assets/droid_run.webp',
-    deadAsset: 'assets/droid_smash.webp',
+    name: 'Runner',
+    asset: 'assets/runner_a.webp',
+    deadAsset: 'assets/runner_a_hit.webp',
     price: 0,
   ),
   HeroInfo(
     type: HeroVariant.gold,
-    name: 'Gold Droid',
-    asset: 'assets/droid_gold.webp',
-    deadAsset: 'assets/droid_gold_smash.webp',
+    name: 'Gold Runner',
+    asset: 'assets/runner_c.webp',
+    deadAsset: 'assets/runner_c_hit.webp',
     price: 49999,
   ),
   HeroInfo(
     type: HeroVariant.chrome,
-    name: 'Chrome Droid',
-    asset: 'assets/droid_chrome.webp',
-    deadAsset: 'assets/droid_chrome_smash.webp',
+    name: 'Chrome Runner',
+    asset: 'assets/runner_b.webp',
+    deadAsset: 'assets/runner_b_hit.webp',
     price: 9999,
   ),
 ];
@@ -48,26 +48,26 @@ class SceneAssets {
   factory SceneAssets() => _instance;
   SceneAssets._();
 
-  late ui.Image droid;
-  late ui.Image droidSmash;
-  late ui.Image sparks;
-  late ui.Image hoverCab;
-  late ui.Image hoverPatrol;
-  late ui.Image hoverCargo;
-  late ui.Image hoverRescue;
-  late ui.Image titleLogo;
-  late ui.Image chipCoin;
-  late ui.Image chipCoinAlt;
-  late ui.Image propBarrier;
-  late ui.Image propTower;
-  late ui.Image propNodeA;
-  late ui.Image propNodeB;
-  late ui.Image propLamp;
+  late ui.Image runner;
+  late ui.Image runnerHit;
+  late ui.Image burst;
+  late ui.Image vehA;
+  late ui.Image vehB;
+  late ui.Image vehC;
+  late ui.Image vehD;
+  late ui.Image titleCard;
+  late ui.Image tokenA;
+  late ui.Image tokenB;
+  late ui.Image envGate;
+  late ui.Image envTower;
+  late ui.Image envNodeA;
+  late ui.Image envNodeB;
+  late ui.Image envLight;
 
-  late ui.Image droidGold;
-  late ui.Image droidGoldSmash;
-  late ui.Image droidChrome;
-  late ui.Image droidChromeSmash;
+  late ui.Image runnerGold;
+  late ui.Image runnerGoldHit;
+  late ui.Image runnerChrome;
+  late ui.Image runnerChromeHit;
 
   bool loaded = false;
 
@@ -75,46 +75,46 @@ class SceneAssets {
     if (loaded) return;
 
     final results = await Future.wait([
-      _load('assets/droid_run.webp'),          // 0
-      _load('assets/droid_smash.webp'),        // 1
-      _load('assets/sparks.webp'),             // 2
-      _load('assets/Cars/hover_cab.webp'),     // 3
-      _load('assets/Cars/hover_patrol.webp'),  // 4
-      _load('assets/Cars/hover_cargo.webp'),   // 5
-      _load('assets/Cars/hover_rescue.webp'),  // 6
-      _load('assets/chrome_rush_title.png'),   // 7
-      _load('assets/chip_coin.png'),           // 8
-      _load('assets/chip_coin_alt.png'),       // 9
-      _load('assets/prop_barrier.png'),        // 10
-      _load('assets/prop_tower.webp'),         // 11
-      _load('assets/prop_node_a.webp'),        // 12
-      _load('assets/prop_node_b.webp'),        // 13
-      _load('assets/prop_lamp.png'),           // 14
-      _load('assets/droid_gold.webp'),         // 15
-      _load('assets/droid_gold_smash.webp'),   // 16
-      _load('assets/droid_chrome.webp'),       // 17
-      _load('assets/droid_chrome_smash.webp'), // 18
+      _load('assets/runner_a.webp'),          // 0
+      _load('assets/runner_a_hit.webp'),      // 1
+      _load('assets/fx_burst.webp'),          // 2
+      _load('assets/vehicles/veh_a.webp'),    // 3
+      _load('assets/vehicles/veh_c.webp'),    // 4
+      _load('assets/vehicles/veh_b.webp'),    // 5
+      _load('assets/vehicles/veh_d.webp'),    // 6
+      _load('assets/title_card.png'),         // 7
+      _load('assets/item_token.png'),         // 8
+      _load('assets/item_token_alt.png'),     // 9
+      _load('assets/env_gate.png'),           // 10
+      _load('assets/env_tower.webp'),         // 11
+      _load('assets/env_node_a.webp'),        // 12
+      _load('assets/env_node_b.webp'),        // 13
+      _load('assets/env_light.png'),          // 14
+      _load('assets/runner_c.webp'),          // 15
+      _load('assets/runner_c_hit.webp'),      // 16
+      _load('assets/runner_b.webp'),          // 17
+      _load('assets/runner_b_hit.webp'),      // 18
     ]);
 
-    droid = results[0];
-    droidSmash = results[1];
-    sparks = results[2];
-    hoverCab = results[3];
-    hoverPatrol = results[4];
-    hoverCargo = results[5];
-    hoverRescue = results[6];
-    titleLogo = results[7];
-    chipCoin = results[8];
-    chipCoinAlt = results[9];
-    propBarrier = results[10];
-    propTower = results[11];
-    propNodeA = results[12];
-    propNodeB = results[13];
-    propLamp = results[14];
-    droidGold = results[15];
-    droidGoldSmash = results[16];
-    droidChrome = results[17];
-    droidChromeSmash = results[18];
+    runner = results[0];
+    runnerHit = results[1];
+    burst = results[2];
+    vehA = results[3];
+    vehB = results[4];
+    vehC = results[5];
+    vehD = results[6];
+    titleCard = results[7];
+    tokenA = results[8];
+    tokenB = results[9];
+    envGate = results[10];
+    envTower = results[11];
+    envNodeA = results[12];
+    envNodeB = results[13];
+    envLight = results[14];
+    runnerGold = results[15];
+    runnerGoldHit = results[16];
+    runnerChrome = results[17];
+    runnerChromeHit = results[18];
 
     loaded = true;
   }
@@ -122,35 +122,35 @@ class SceneAssets {
   ui.Image heroAlive(HeroVariant v) {
     switch (v) {
       case HeroVariant.classic:
-        return droid;
+        return runner;
       case HeroVariant.gold:
-        return droidGold;
+        return runnerGold;
       case HeroVariant.chrome:
-        return droidChrome;
+        return runnerChrome;
     }
   }
 
   ui.Image heroDead(HeroVariant v) {
     switch (v) {
       case HeroVariant.classic:
-        return droidSmash;
+        return runnerHit;
       case HeroVariant.gold:
-        return droidGoldSmash;
+        return runnerGoldHit;
       case HeroVariant.chrome:
-        return droidChromeSmash;
+        return runnerChromeHit;
     }
   }
 
   ui.Image imageForHazard(HazardType type) {
     switch (type) {
       case HazardType.cab:
-        return hoverCab;
+        return vehA;
       case HazardType.patrol:
-        return hoverPatrol;
+        return vehC;
       case HazardType.cargo:
-        return hoverCargo;
+        return vehB;
       case HazardType.rescuer:
-        return hoverRescue;
+        return vehD;
     }
   }
 

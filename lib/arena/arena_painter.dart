@@ -204,11 +204,11 @@ class ArenaPainter extends CustomPainter {
 
   _PropDrawInfo _propInfo(PropType type) {
     switch (type) {
-      case PropType.tower:  return _PropDrawInfo(assets.propTower, 64);
-      case PropType.nodeA:  return _PropDrawInfo(assets.propNodeA, 52);
-      case PropType.nodeB:  return _PropDrawInfo(assets.propNodeB, 50);
-      case PropType.barrier:return _PropDrawInfo(assets.propBarrier, 48);
-      case PropType.lamp:   return _PropDrawInfo(assets.propLamp, 56);
+      case PropType.tower:  return _PropDrawInfo(assets.envTower, 64);
+      case PropType.nodeA:  return _PropDrawInfo(assets.envNodeA, 52);
+      case PropType.nodeB:  return _PropDrawInfo(assets.envNodeB, 50);
+      case PropType.barrier:return _PropDrawInfo(assets.envGate, 48);
+      case PropType.lamp:   return _PropDrawInfo(assets.envLight, 56);
     }
   }
 
@@ -293,9 +293,9 @@ class ArenaPainter extends CustomPainter {
     for (final sd in row.surfaceDecos) {
       switch (sd.type) {
         case SurfaceDecoType.panel:
-          _drawImage(canvas, assets.chipCoinAlt, sd.x - 16, rect.center.dy - 16, 32, 32);
+          _drawImage(canvas, assets.tokenB, sd.x - 16, rect.center.dy - 16, 32, 32);
         case SurfaceDecoType.panel2:
-          _drawImage(canvas, assets.chipCoinAlt, sd.x - 16, rect.center.dy - 16, 32, 32);
+          _drawImage(canvas, assets.tokenB, sd.x - 16, rect.center.dy - 16, 32, 32);
         case SurfaceDecoType.skidMark:
           final skidPaint = Paint()
             ..color = neonCyan.withValues(alpha: 0.12)
@@ -367,7 +367,7 @@ class ArenaPainter extends CustomPainter {
         );
 
         // coin image
-        _drawImage(canvas, assets.chipCoin, cx - 14, laneY - 16 + bobOffset, 28, 28);
+        _drawImage(canvas, assets.tokenA, cx - 14, laneY - 16 + bobOffset, 28, 28);
 
         // animated glow
         final shimmer = ((sin(time * 6 + chip.column * 2.5) + 1) / 2 * 0.35).clamp(0.0, 0.35);
@@ -529,7 +529,7 @@ class ArenaPainter extends CustomPainter {
           neonCyan.withValues(alpha: sparkAlpha),
           BlendMode.modulate,
         );
-      final src = Rect.fromLTWH(0, 0, assets.sparks.width.toDouble(), assets.sparks.height.toDouble());
+      final src = Rect.fromLTWH(0, 0, assets.burst.width.toDouble(), assets.burst.height.toDouble());
 
       for (int f = 0; f < 3; f++) {
         final angle = engine.deathTimer * (1.5 + f * 0.7);
@@ -541,7 +541,7 @@ class ArenaPainter extends CustomPainter {
         canvas.translate(fx, fy);
         canvas.rotate(angle * 0.5);
         canvas.translate(-fx, -fy);
-        canvas.drawImageRect(assets.sparks, src, dst, paint);
+        canvas.drawImageRect(assets.burst, src, dst, paint);
         canvas.restore();
       }
     }
