@@ -516,19 +516,26 @@ class _ArenaScreenState extends State<ArenaScreen>
               ),
             ),
             const SizedBox(width: 10),
-            GestureDetector(
-              onTap: _editName,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(_playerName, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                  Row(children: [
-                    const Icon(Icons.toll, color: _magenta, size: 14),
-                    const SizedBox(width: 4),
-                    Text('$_totalCoins', style: const TextStyle(color: _magenta, fontSize: 13)),
+            Flexible(
+              child: GestureDetector(
+                onTap: _editName,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(
+                      _playerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Row(children: [
+                      const Icon(Icons.toll, color: _magenta, size: 14),
+                      const SizedBox(width: 4),
+                      Text('$_totalCoins', style: const TextStyle(color: _magenta, fontSize: 13)),
+                    ]),
                   ]),
-                ]),
+                ),
               ),
             ),
             const Spacer(),
