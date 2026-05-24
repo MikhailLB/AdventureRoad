@@ -422,16 +422,13 @@ class _WebViewPageState extends State<WebViewPage>
 
   @override
   Widget build(BuildContext context) {
-    // On cold-start: skip viewPadding until surface is ready (stale insets
-    // cause black letterboxing — gray_flow_guide §2)
-    final safe = widget.coldStartPush
-        ? EdgeInsets.zero
-        : EdgeInsets.only(
-            top: MediaQuery.of(context).viewPadding.top,
-            bottom: MediaQuery.of(context).viewPadding.bottom,
-            left: MediaQuery.of(context).viewPadding.left,
-            right: MediaQuery.of(context).viewPadding.right,
-          );
+    // viewPadding is always applied. For cold-start, didChangeMetrics() fires
+    // after immersiveSticky settles, rebuilding with the correct (usually 0)
+    // insets. Micro-rotation + deferred load handle the WKWebView frame.
+    final vp = MediaQuery.of(context).viewPadding;
+    final safe = EdgeInsets.only(
+      top: vp.top, bottom: vp.bottom, left: vp.left, right: vp.right,
+    );
 
     return PopScope(
       canPop: false,
