@@ -16,7 +16,7 @@ if (hasKeystore) {
 }
 
 android {
-    namespace = "com.adventix.adventureroad"
+    namespace = "com.feather.run.app"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -31,7 +31,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.adventix.adventureroad"
+        applicationId = "com.feather.run.app"
         minSdk = 30
         targetSdk = 35
         versionCode = flutter.versionCode

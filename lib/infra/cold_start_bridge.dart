@@ -14,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ColdStartBridge {
   /// Must match SceneDelegate.launchUrlKey minus the "flutter." prefix that
   /// SharedPreferences adds automatically on iOS.
-  static const String _prefKey = 'ar_road_cold_start_url';
+  static const String _prefKey = 'fr_cold_start_url';
 
   /// Returns and clears the URL stored by SceneDelegate on cold-start tap.
   /// Returns null on non-iOS platforms or when there is no stored URL.
@@ -24,14 +24,14 @@ class ColdStartBridge {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_prefKey);
       if (raw == null || raw.trim().isEmpty) {
-        debugPrint('[AR.BRIDGE] consumeLaunchUrl -> null');
+        debugPrint('[FR.BRIDGE] consumeLaunchUrl -> null');
         return null;
       }
       await prefs.remove(_prefKey);
-      debugPrint('[AR.BRIDGE] consumeLaunchUrl -> $raw');
+      debugPrint('[FR.BRIDGE] consumeLaunchUrl -> $raw');
       return raw.trim();
     } catch (err) {
-      debugPrint('[AR.BRIDGE] consumeLaunchUrl failed: $err');
+      debugPrint('[FR.BRIDGE] consumeLaunchUrl failed: $err');
       return null;
     }
   }

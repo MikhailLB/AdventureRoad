@@ -6,14 +6,14 @@ import 'infra/net_checker.dart';
 import 'infra/push_manager.dart';
 import 'infra/data_store.dart';
 
-class StreetSurgeApp extends StatelessWidget {
+class FeatherRunApp extends StatelessWidget {
   final DataStore store;
   final NetChecker netChecker;
   final AnalyticsTracker tracker;
   final ApiClient apiClient;
   final PushManager pushManager;
 
-  const StreetSurgeApp({
+  const FeatherRunApp({
     super.key,
     required this.store,
     required this.netChecker,

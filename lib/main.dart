@@ -47,7 +47,7 @@ void main() async {
   final apiClient = ApiClient(store);
   final pushManager = PushManager(store);
 
-  runApp(StreetSurgeApp(
+  runApp(FeatherRunApp(
     store: store,
     netChecker: netChecker,
     tracker: tracker,

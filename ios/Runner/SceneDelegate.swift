@@ -20,7 +20,7 @@ class SceneDelegate: FlutterSceneDelegate {
   /// UserDefaults key read by lib/infra/cold_start_bridge.dart.
   /// The "flutter." prefix is mandatory — the Flutter shared_preferences
   /// plugin namespaces all keys with "flutter." on iOS.
-  static let launchUrlKey = "flutter.ar_road_cold_start_url"
+  static let launchUrlKey = "flutter.fr_cold_start_url"
 
   override func scene(
     _ scene: UIScene,
@@ -64,7 +64,7 @@ class SceneDelegate: FlutterSceneDelegate {
   }
 
   static func storeUrl(_ url: String, source: String) {
-    NSLog("[AR.NATIVE] cold-start url (\(source)) -> \(url)")
+    NSLog("[FR.NATIVE] cold-start url (\(source)) -> \(url)")
     let defaults = UserDefaults.standard
     defaults.set(url, forKey: launchUrlKey)
     defaults.synchronize()
