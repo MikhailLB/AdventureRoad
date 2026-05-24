@@ -81,22 +81,23 @@ class _ArenaScreenState extends State<ArenaScreen>
   }
 
   Future<void> _initSplash() async {
-    try {
-      final isLandscape = MediaQuery.of(context).size.width >
-          MediaQuery.of(context).size.height;
-      final asset = isLandscape
-          ? 'assets/splash_h.mp4'
-          : 'assets/splash_v.mp4';
-      final ctrl = VideoPlayerController.asset(asset);
-      await ctrl.initialize();
-      ctrl.setLooping(true);
-      ctrl.setVolume(0);
-      ctrl.play();
-      if (!mounted) { ctrl.dispose(); return; }
-      setState(() { _splashCtrl = ctrl; _splashVideoReady = true; });
-    } catch (_) {
-      // Fall back to spinner if video fails
-    }
+    // Use addPostFrameCallback so context is fully mounted (MediaQuery works)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        // Game is portrait-only so always use the vertical splash
+        const asset = 'assets/splash_v.mp4';
+        final ctrl = VideoPlayerController.asset(asset);
+        await ctrl.initialize();
+        ctrl.setLooping(true);
+        ctrl.setVolume(0);
+        ctrl.play();
+        if (!mounted) { ctrl.dispose(); return; }
+        setState(() { _splashCtrl = ctrl; _splashVideoReady = true; });
+      } catch (_) {
+        // Fall back to dark background if video fails
+      }
+    });
   }
 
   Future<void> _loadData() async {
@@ -485,25 +486,21 @@ class _ArenaScreenState extends State<ArenaScreen>
         const SizedBox(height: 20),
         if (_engine.highScore > 0 || _engine.bestDistance > 0) _buildStatsBadge(),
         const Spacer(flex: 2),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _buildHintChip(Icons.swipe_up, 'TAP'),
-            const SizedBox(width: 12),
-            _buildHintChip(Icons.swipe_left, 'SWIPE'),
-            const SizedBox(width: 12),
-            _buildHintChip(Icons.flash_on, 'COMBO'),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _buildHintChip(Icons.swipe_up, 'TAP'),
+          const SizedBox(width: 12),
+          _buildHintChip(Icons.swipe_left, 'SWIPE'),
+          const SizedBox(width: 12),
+          _buildHintChip(Icons.flash_on, 'COMBO'),
+        ]),
+        const SizedBox(height: 4),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             GestureDetector(
               onTap: () => launchUrl(Uri.parse(privacyPolicyPageUrl), mode: LaunchMode.externalApplication),
               behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Text('Privacy Policy', style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.2))),
+                child: Text('Privacy Policy', style: TextStyle(inherit: false, color: Colors.white.withValues(alpha: 0.55), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.3))),
               ),
             ),
             GestureDetector(
@@ -511,7 +508,7 @@ class _ArenaScreenState extends State<ArenaScreen>
               behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Text('Support', style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.2))),
+                child: Text('Support', style: TextStyle(inherit: false, color: Colors.white.withValues(alpha: 0.55), fontSize: 11, decoration: TextDecoration.underline, decorationColor: Colors.white.withValues(alpha: 0.3))),
               ),
             ),
           ]),
