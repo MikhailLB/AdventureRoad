@@ -28,10 +28,25 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Gray gate: Firebase swizzling for cold-start push -->
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<true/>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
+	<!-- Gray gate: push notifications background delivery -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<!-- Gray gate: ATT dialog for AppsFlyer attribution -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Feather Run uses this to personalise your in-game challenges and measure which campaigns bring the most skilled players to the community.</string>
+	<!-- Gray gate: WebView loads external content -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+	</dict>
+	<!-- Gray gate: external URL schemes -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>https</string>
@@ -39,15 +54,11 @@
 		<string>tel</string>
 		<string>mailto</string>
 	</array>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoadsInWebContent</key>
-		<true/>
-	</dict>
+	<!-- Photo / camera for profile picture -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Feather Run uses your photo library so you can set a custom profile picture.</string>
+	<string>Feather Run uses your photo library so you can set a custom profile picture and share your best runs.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Feather Run uses your camera so you can take a profile photo.</string>
+	<string>Feather Run uses your camera so you can take a profile photo to show off your in-game achievements.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
