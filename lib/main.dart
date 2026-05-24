@@ -15,21 +15,28 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
+    debugPrint('[FR.BOOT] Firebase initialized OK');
+  } catch (err) {
+    debugPrint('[FR.BOOT] Firebase init failed: $err');
+  }
+  try {
     await FirebaseAppCheck.instance.activate(
       androidProvider: kDebugMode
           ? AndroidProvider.debug
           : AndroidProvider.playIntegrity,
       appleProvider: kDebugMode
           ? AppleProvider.debug
-          : AppleProvider.deviceCheck,
+          : AppleProvider.appAttestWithDeviceCheckFallback,
     );
-  } catch (_) {}
+    debugPrint('[FR.BOOT] AppCheck activated OK');
+  } catch (err) {
+    debugPrint('[FR.BOOT] AppCheck skipped: $err');
+  }
 
+  // Portrait-only — game layout breaks in landscape
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
   ]);
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
