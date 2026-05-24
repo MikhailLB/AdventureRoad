@@ -371,7 +371,7 @@ class _ArenaScreenState extends State<ArenaScreen>
           ]),
         ),
         const Spacer(flex: 2),
-        Image.asset('assets/title_card.png', width: c.maxWidth * 0.85, fit: BoxFit.contain),
+        Image.asset('assets/title_card.webp', width: c.maxWidth * 0.85, fit: BoxFit.contain),
         const SizedBox(height: 16),
         Transform.translate(
           offset: Offset(0, bob),

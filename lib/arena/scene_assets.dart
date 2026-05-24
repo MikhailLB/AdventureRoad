@@ -82,7 +82,7 @@ class SceneAssets {
       _load('assets/vehicles/veh_c.webp'),    // 4
       _load('assets/vehicles/veh_b.webp'),    // 5
       _load('assets/vehicles/veh_d.webp'),    // 6
-      _load('assets/title_card.png'),         // 7
+      _load('assets/title_card.webp'),         // 7
       _load('assets/item_token.png'),         // 8
       _load('assets/item_token_alt.png'),     // 9
       _load('assets/env_gate.png'),           // 10
