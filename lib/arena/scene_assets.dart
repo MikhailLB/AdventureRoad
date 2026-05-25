@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 
-enum HeroVariant { classic, gold, chrome }
+enum HeroVariant { classic, gold, chrome, zombie }
 
 class HeroInfo {
   final HeroVariant type;
@@ -41,6 +41,13 @@ const List<HeroInfo> allHeroes = [
     deadAsset: 'assets/droid_chrome_smash.webp',
     price: 9999,
   ),
+  HeroInfo(
+    type: HeroVariant.zombie,
+    name: 'Zombie Droid',
+    asset: 'assets/droid_zombie.webp',
+    deadAsset: 'assets/droid_zombie_smash.webp',
+    price: 19999,
+  ),
 ];
 
 class SceneAssets {
@@ -68,6 +75,8 @@ class SceneAssets {
   late ui.Image droidGoldSmash;
   late ui.Image droidChrome;
   late ui.Image droidChromeSmash;
+  late ui.Image droidZombie;
+  late ui.Image droidZombieSmash;
 
   bool loaded = false;
 
@@ -92,8 +101,10 @@ class SceneAssets {
       _load('assets/prop_lamp.png'),           // 14
       _load('assets/droid_gold.webp'),         // 15
       _load('assets/droid_gold_smash.webp'),   // 16
-      _load('assets/droid_chrome.webp'),       // 17
-      _load('assets/droid_chrome_smash.webp'), // 18
+      _load('assets/droid_chrome.webp'),        // 17
+      _load('assets/droid_chrome_smash.webp'),  // 18
+      _load('assets/droid_zombie.webp'),        // 19
+      _load('assets/droid_zombie_smash.webp'),  // 20
     ]);
 
     droid = results[0];
@@ -115,6 +126,8 @@ class SceneAssets {
     droidGoldSmash = results[16];
     droidChrome = results[17];
     droidChromeSmash = results[18];
+    droidZombie = results[19];
+    droidZombieSmash = results[20];
 
     loaded = true;
   }
@@ -127,6 +140,8 @@ class SceneAssets {
         return droidGold;
       case HeroVariant.chrome:
         return droidChrome;
+      case HeroVariant.zombie:
+        return droidZombie;
     }
   }
 
@@ -138,6 +153,8 @@ class SceneAssets {
         return droidGoldSmash;
       case HeroVariant.chrome:
         return droidChromeSmash;
+      case HeroVariant.zombie:
+        return droidZombieSmash;
     }
   }
 
