@@ -236,6 +236,12 @@ class _WebViewPageState extends State<WebViewPage>
   }
 
   void _configurePlatform() {
+    if (Platform.isIOS && _controller.platform is WebKitWebViewController) {
+      final iosController = _controller.platform as WebKitWebViewController;
+      // Enable native WKWebView swipe-back gesture to navigate browser history.
+      iosController.setAllowsBackForwardNavigationGestures(true);
+    }
+
     if (Platform.isAndroid &&
         _controller.platform is AndroidWebViewController) {
       final androidController =
