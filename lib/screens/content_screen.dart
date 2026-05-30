@@ -13,7 +13,43 @@ import '../services/push_notification_service.dart';
 import '../services/storage_service.dart';
 import 'no_internet_screen.dart';
 
-Future<void> prepareContentEngine() async {}
+// ============================================================
+// CONTENT SCREEN — Full-screen WebView shell (gray mode UI)
+// ============================================================
+// PURPOSE: Display the URL received from the config endpoint
+// inside a full-screen WebView. This is the main "gray" screen.
+//
+// FEATURES:
+//   - Full-screen immersive mode (hides status bar + nav bar)
+//   - Both portrait and landscape orientations supported
+//   - Back press navigates within WebView history (never exits app)
+//   - Connectivity monitoring — shows NoInternetScreen if connection drops
+//   - Push URL redirect — ContentScreen listens for push notification URLs
+//     and loads them live without restarting the app
+//   - File upload support via FilePicker (for photo/document upload in WebView)
+//   - Third-party cookie support (required for most affiliate sites)
+//   - Video autoplay enabled (no user gesture required)
+//   - JavaScript injections:
+//       _injectSiteAreaKill() — removes safe-area insets to prevent layout gaps
+//       _injectKeyboardScrollFix() — scrolls focused inputs above keyboard
+//
+// NAVIGATION RULES:
+//   - http/https/about/data/blob → WebView handles internally
+//   - intent://, tel://, market:// → launch via external app (url_launcher)
+//   - Back button → WebView goBack() if canGoBack(), otherwise no-op (never exit)
+//
+// TOO MANY REDIRECTS:
+//   Some affiliate chains produce redirect loops. Detect errorCode -1007/-9
+//   or description containing "too_many_redirects" and retry up to 3 times
+//   from the last known good URL.
+// ============================================================
+
+/// Pre-warms the WebView engine before navigation.
+/// Called via `content.loadLibrary()` + `content.prepareContentEngine()`.
+/// The deferred import in splash_screen.dart delays this until gray mode confirmed.
+Future<void> prepareContentEngine() async {
+  // TODO: optionally pre-warm WebViewPlatform here if needed
+}
 
 class ContentScreen extends StatefulWidget {
   final String url;
@@ -39,24 +75,29 @@ class _ContentScreenState extends State<ContentScreen>
   bool _isLoading = true;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   bool _showingNoInternet = false;
+
+  // Track last navigated URL for too-many-redirects retry
   String? _lastRedirectUrl;
   int _redirectRetryCount = 0;
 
   void _applySystemUI() {
+    // Full immersive — hides both status bar and navigation bar.
+    // Re-applied on app resume (lifecycle observer) since Android
+    // can reset system UI after permission dialogs or other overlays.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _applySystemUI();
-    }
+    if (state == AppLifecycleState.resumed) _applySystemUI();
   }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // WebView must support both orientations
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -65,6 +106,19 @@ class _ContentScreenState extends State<ContentScreen>
     ]);
     _applySystemUI();
 
+    // TODO: Build WebViewController with these settings:
+    //   - setJavaScriptMode(JavaScriptMode.unrestricted)
+    //   - setUserAgent(appHttpClient.userAgent) — real device UA
+    //   - setBackgroundColor(Colors.black)
+    //   - NavigationDelegate with:
+    //       onPageStarted: setState _isLoading = true
+    //       onPageFinished: setState _isLoading = false, reset retry counter,
+    //                       call _injectSiteAreaKill(), _injectKeyboardScrollFix()
+    //       onWebResourceError: detect redirect loop, call _checkAndShowNoInternet()
+    //       onNavigationRequest: allow http/https/about/data/blob,
+    //                            launch external for other schemes
+    //   - enableZoom(false)
+    //   - For Android: call _configurePlatform() after building controller
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(appHttpClient.userAgent)
@@ -109,9 +163,7 @@ class _ContentScreenState extends State<ContentScreen>
               scheme == 'about' ||
               scheme == 'data' ||
               scheme == 'blob') {
-            if (request.isMainFrame) {
-              _lastRedirectUrl = request.url;
-            }
+            if (request.isMainFrame) _lastRedirectUrl = request.url;
             return NavigationDecision.navigate;
           }
 
@@ -124,16 +176,17 @@ class _ContentScreenState extends State<ContentScreen>
     _configurePlatform();
     _controller.loadRequest(Uri.parse(widget.url));
 
+    // Push warm redirect — ContentScreen handles it live
     widget.pushService.onNotificationUrl = (url) {
-      if (mounted) {
-        _controller.loadRequest(Uri.parse(url));
-      }
+      if (mounted) _controller.loadRequest(Uri.parse(url));
     };
 
+    // Connectivity drop → NoInternetScreen
     _connectivitySub =
         widget.connectivity.onConnectivityChanged.listen((results) {
-      final lost = results.every((r) => r == ConnectivityResult.none);
-      if (lost) _checkAndShowNoInternet();
+      if (results.every((r) => r == ConnectivityResult.none)) {
+        _checkAndShowNoInternet();
+      }
     });
   }
 
@@ -143,8 +196,7 @@ class _ContentScreenState extends State<ContentScreen>
     if (hasInternet || !mounted) return;
     _showingNoInternet = true;
 
-    final currentUrl =
-        await _controller.currentUrl() ?? widget.url;
+    final currentUrl = await _controller.currentUrl() ?? widget.url;
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -160,27 +212,31 @@ class _ContentScreenState extends State<ContentScreen>
     );
   }
 
+  /// Configure Android-specific WebView settings.
+  /// TODO: Verify third-party cookie handling works with your target sites.
   void _configurePlatform() {
     if (Platform.isAndroid &&
         _controller.platform is AndroidWebViewController) {
-      final androidController =
-          _controller.platform as AndroidWebViewController;
-      androidController.setMediaPlaybackRequiresUserGesture(false);
+      final ctrl = _controller.platform as AndroidWebViewController;
 
-      androidController.setOnShowFileSelector(_handleFileSelector);
+      // Video autoplay — no user gesture required
+      ctrl.setMediaPlaybackRequiresUserGesture(false);
 
+      // File upload support (photo picker, document picker)
+      ctrl.setOnShowFileSelector(_handleFileSelector);
+
+      // Third-party cookies — required by most affiliate/casino sites
       final cookieManager = AndroidWebViewCookieManager(
         AndroidWebViewCookieManagerCreationParams
             .fromPlatformWebViewCookieManagerCreationParams(
           const PlatformWebViewCookieManagerCreationParams(),
         ),
       );
-      cookieManager.setAcceptThirdPartyCookies(androidController, true);
+      cookieManager.setAcceptThirdPartyCookies(ctrl, true);
     }
   }
 
-  Future<List<String>> _handleFileSelector(
-      FileSelectorParams params) async {
+  Future<List<String>> _handleFileSelector(FileSelectorParams params) async {
     try {
       final result = await FilePicker.pickFiles(
         allowMultiple: params.mode == FileSelectorMode.openMultiple,
@@ -196,6 +252,12 @@ class _ContentScreenState extends State<ContentScreen>
     return [];
   }
 
+  /// Injects JS to scroll focused inputs above the keyboard.
+  ///
+  /// IMPORTANT: Use behavior:'auto' NOT behavior:'smooth'.
+  /// On Android, smooth scroll conflicts with keyboard animation
+  /// and causes the keyboard to visibly jump.
+  /// Single setTimeout at 350ms — not multiple at 250/500/800ms.
   void _injectKeyboardScrollFix() {
     _controller.runJavaScript('''
 (function() {
@@ -214,18 +276,16 @@ class _ContentScreenState extends State<ContentScreen>
       var rect = el.getBoundingClientRect();
       var vpBottom = vp.offsetTop + vp.height;
       if (rect.bottom > vpBottom - 20 || rect.top < vp.offsetTop) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({ behavior: 'auto', block: 'nearest' });
       }
     } else {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.scrollIntoView({ behavior: 'auto', block: 'nearest' });
     }
   }
 
   document.addEventListener('focusin', function(e) {
     if (isInput(e.target)) {
-      setTimeout(doScroll, 250);
-      setTimeout(doScroll, 500);
-      setTimeout(doScroll, 800);
+      setTimeout(doScroll, 350);
     }
   });
 
@@ -233,10 +293,7 @@ class _ContentScreenState extends State<ContentScreen>
     var prevH = window.visualViewport.height;
     window.visualViewport.addEventListener('resize', function() {
       var h = window.visualViewport.height;
-      if (h < prevH) {
-        setTimeout(doScroll, 80);
-        setTimeout(doScroll, 300);
-      }
+      if (h < prevH) { setTimeout(doScroll, 120); }
       prevH = h;
     });
   }
@@ -244,6 +301,9 @@ class _ContentScreenState extends State<ContentScreen>
 ''');
   }
 
+  /// Injects CSS to remove safe-area insets and fixes viewport-fit.
+  /// Prevents white bars at top/bottom on notched Android devices.
+  /// Also re-applies on SPA route changes (Vue/Nuxt pushState).
   void _injectSiteAreaKill() {
     _controller.runJavaScript(r'''
 (function() {
@@ -273,14 +333,12 @@ class _ContentScreenState extends State<ContentScreen>
   function apply() {
     var head = document.head || document.documentElement;
     if (!head) return;
-    // Fix viewport meta only if needed
     var m = document.querySelector('meta[name="viewport"]');
     if (m && !/viewport-fit\s*=\s*contain/i.test(m.getAttribute('content') || '')) {
       var c = (m.getAttribute('content') || '')
         .replace(/,?\s*viewport-fit\s*=\s*\w+/ig, '').trim();
       m.setAttribute('content', c + (c ? ', ' : '') + 'viewport-fit=contain');
     }
-    // Inject/update style
     var s = document.getElementById(CSS_ID);
     if (!s) {
       s = document.createElement('style');
@@ -288,13 +346,11 @@ class _ContentScreenState extends State<ContentScreen>
       head.appendChild(s);
     }
     if (s.textContent !== CSS_TEXT) s.textContent = CSS_TEXT;
-    // Keep as last style so specificity wins
     if (head.lastElementChild !== s) head.appendChild(s);
   }
 
   apply();
 
-  // Re-apply on SPA route change (Vue/Nuxt uses history API)
   ['pushState', 'replaceState'].forEach(function(fn) {
     var orig = history[fn];
     history[fn] = function() {
@@ -305,8 +361,6 @@ class _ContentScreenState extends State<ContentScreen>
     };
   });
   window.addEventListener('popstate', function() { setTimeout(apply, 80); });
-
-  // Safety net every 2.5s — no loop risk since setInterval is not reactive
   setInterval(apply, 2500);
 })();
 ''');
@@ -337,9 +391,9 @@ class _ContentScreenState extends State<ContentScreen>
   }
 
   Future<bool> _onWillPop() async {
+    // Never let back button exit the app — navigate within WebView history
     if (await _controller.canGoBack()) {
       await _controller.goBack();
-      return false;
     }
     return false;
   }
@@ -353,11 +407,12 @@ class _ContentScreenState extends State<ContentScreen>
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: false, // CRITICAL: must be false for keyboard fix
         body: Stack(
           fit: StackFit.expand,
           children: [
             Padding(
+              // Apply status bar height in portrait; none in landscape (immersive)
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).orientation == Orientation.landscape
                     ? 0
@@ -370,8 +425,7 @@ class _ContentScreenState extends State<ContentScreen>
                 color: Colors.black.withValues(alpha: 0.5),
                 child: const Center(
                   child: CircularProgressIndicator(
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(Colors.amber),
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
                   ),
                 ),
               ),
