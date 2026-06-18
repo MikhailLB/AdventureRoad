@@ -338,11 +338,28 @@ Use the last successfully received data for the config request.
 ```dart
 bool shouldShowNotificationScreen() {
   if (isNotificationGranted()) return false;        // already granted
+  if (isNotificationOsDenied()) return false;       // OS denied — can't request again
   final skipUntil = getNotificationSkipUntil();
   if (skipUntil == null) return true;               // first time
   return DateTime.now().millisecondsSinceEpoch ~/ 1000 >= skipUntil;
 }
 ```
+
+### ⚠️ ВАЖНО: флаг OS-denied (обязательно реализовать)
+
+**Проблема:** Если пользователь нажал "Запретить" в системном диалоге, Android больше не покажет диалог запроса разрешений. Однако без флага `notification_os_denied` через 3 дня (после истечения `skipUntil`) `shouldShowNotificationScreen()` снова вернёт `true` и экран появится, хотя нажатие "Accept" ничего не даст — системный диалог просто не откроется.
+
+**Обязательная реализация в `requestPermission()`:**
+```dart
+if (status == AuthorizationStatus.denied) {
+  await _storage.setNotificationOsDenied(); // never show again
+}
+```
+
+**Требуется в StorageService:**
+- `static const _keyNotificationOsDenied = 'notification_os_denied';`
+- `bool isNotificationOsDenied() => _prefs.getBool(_keyNotificationOsDenied) ?? false;`
+- `Future<void> setNotificationOsDenied() => _prefs.setBool(_keyNotificationOsDenied, true);`
 
 ### Push URL routing (per TZ — CRITICAL DISTINCTION):
 
