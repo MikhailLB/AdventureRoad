@@ -1,23 +1,27 @@
 ---
-description: Gray-flow User-Agent must carry appid/appname (Zeus & Magma games only)
-globs: **/device_agent.dart,**/http_client.dart
+description: Gray-flow User-Agent must carry appid/appname for SLOT-themed games
+globs: **/device_agent.dart,**/http_client.dart,**/agent_client.dart
 alwaysApply: false
 ---
 
 # Gray-flow User-Agent identity suffix
 
-**Condition:** apply ONLY to games themed around **Zeus** or **Magma**.
-For any other game theme, do NOT add this suffix.
+**When to apply:** ONLY for **slot-machine themed** games. Known slot themes:
+**Joker, Egypt, Zeus, Magma / Lava**. For any non-slot theme (runners,
+clickers without a slot wrapper, arcade, puzzle, etc.) do NOT add the suffix.
 
-When building the gray-flow HTTP/WebView User-Agent for a Zeus or Magma game,
-append the app identity after the standard browser UA, space-separated:
+**If you are not sure whether the game is a slot theme, STOP and ASK the
+user before adding the suffix.** Do not guess.
+
+When the game IS a slot theme, append the app identity after the standard
+browser User-Agent, space-separated:
 
 ```
 <browser UA> appid/<bundleId> appname/<AppName>
 ```
 
-- `appid/` → the application id / bundle id (e.g. `com.super.game`)
-- `appname/` → a space-free app name token (e.g. `GameNaming`)
+- `appid/`   → the application id / bundle id (e.g. `com.super.game`)
+- `appname/` → a space-free app name token in PascalCase (e.g. `GameNaming`)
 
 Example (full):
 
@@ -30,5 +34,5 @@ Rules:
   (`setUserAgent`), so traffic stays consistent.
 - `appname` must contain no spaces (use PascalCase).
 - Keep the suffix as the very last segment, after `Mobile Safari/537.36`.
-- Source the values from the central config (e.g. app settings / facade) —
-  never hardcode at the call site.
+- Source the values from the central config / facade — never hardcode at the
+  call site.

@@ -1,0 +1,28 @@
+---
+description: Gray-flow must re-check the config URL on every launch and follow URL changes
+globs: **/splash_screen.dart,**/boot_gate.dart,**/remote_service.dart,**/verdict_gateway.dart
+alwaysApply: false
+---
+
+# Gray-flow: re-check the verdict URL on returning launches
+
+Once an install has been routed into the gray (web) part, the app must NOT
+blindly reopen the previously saved URL forever. On every subsequent launch
+(AppMode.online / LaunchMode.web) the app must:
+
+1. Query the config endpoint again (same attribution POST body).
+2. If the backend returns a fresh `ok: true` + `url`, open THAT url in the
+   WebView — even if it differs from the previously cached one (the offer /
+   landing URL can rotate on the backend side).
+3. Persist the new url + expiry, replacing the old cached value.
+4. Only fall back to the cached url when the request fails or there is no
+   network (an expired cached url is still better than a blank screen).
+
+Push URLs keep priority: a one-shot push URL (cold-start tap) is consumed and
+opened first, before the normal config re-check.
+
+Rationale: the partner landing URL changes over time. A returning user must
+always land on the current URL, not a stale one captured at first launch.
+
+Implementation note: keep the re-check cheap (short attribution wait on
+returning launches) so total load time stays under the 10s budget.
